@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Up</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* Body & Centering */
+  body {
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background: #f0f2f5;
+  }
+
+  /* Card */
+  .card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 50px 40px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+    text-align: center;
+  }
+
+  /* Heading */
+  h2 {
+    font-weight: 600;
+    margin-bottom: 35px;
+    color: #111827;
+    font-size: 28px;
+  }
+
+  /* Form Fields */
+  input {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    font-size: 16px;
+    transition: all 0.3s;
+  }
+
+  input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+  }
+
+  /* Button */
+  button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 20px;
+    background-color: #2563eb;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+
+  button:hover {
+    background-color: #1e40af;
+  }
+
+  /* Error messages */
+  .errors {
+    color: #dc2626;
+    margin-bottom: 15px;
+    text-align: left;
+    font-size: 14px;
+  }
+
+  /* Login link */
+  .login-link {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #6b7280;
+  }
+
+  .login-link a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .login-link a:hover {
+    text-decoration: underline;
+  }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    .card {
+      padding: 40px 25px;
+    }
+    h2 {
+      font-size: 24px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Create Account</h2>
+
+  {% if form.errors %}
+    <div class="errors">
+      <ul>
+        {% for field in form %}
+          {% for error in field.errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'signup' %}">
+    {% csrf_token %}
+    {{ form.username }}
+    {{ form.email }}
+    {{ form.password1 }}
+    {{ form.password2 }}
+    <button type="submit">Sign Up</button>
+  </form>
+
+  <div class="login-link">
+    Already have an account? <a href="{% url 'login' %}">Login</a>
+  </div>
+</div>
+
+</body>
+</html>
