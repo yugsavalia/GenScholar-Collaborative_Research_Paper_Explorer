@@ -40,6 +40,6 @@ The following resources and tools were used and referred to during the developme
 3. **AI Tools**  
    - [ChatGPT](https://chat.openai.com/) – AI assistant used for documentation, coding guidance, and explanations.  
    - [Gemini](https://gemini.com/) – AI tool for research assistance and coding support.  
-   - [Claude](https://www.anthropic.com/) – AI tool for code review and documentation drafting.
+   - [Claude](https://www.anthropic.com/) – AI tool for code review.
 
    
