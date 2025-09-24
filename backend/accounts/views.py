@@ -7,8 +7,8 @@ def signup_view(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()       # saves user in DB
-            login(request, user)     # log in immediately
+            user = form.save()       
+            login(request, user)     
             return redirect("dashboard")
     else:
         form = UserCreationForm()
@@ -34,3 +34,4 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     return render(request, "accounts/dashboard.html")
+
