@@ -1,0 +1,273 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ workspace.name }}</title>
+    <!-- PDF.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        body { font-family: Arial; }
+        .container { display: flex; gap: 20px; }
+        .left-section { flex: 1; min-width: 0; }
+        .right-section { width: 300px; flex-shrink: 0; }
+        .pdf-viewer { 
+            border: 1px solid #ccc; 
+            max-height: 600px; 
+            width: 100%; 
+            display: block; 
+            background: #f5f5f5;
+            overflow-y: auto;
+        }
+        #pdfCanvas {
+            border: 1px solid #ddd;
+            background: white;
+            display: block;
+            margin: 0 auto;
+        }
+        .pdf-controls {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .pdf-controls button {
+            padding: 5px 15px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        #pageInfo {
+            display: inline-block;
+            margin: 0 15px;
+        }
+        .chat-box { border: 1px solid #ccc; height: 400px; overflow-y: auto; margin-bottom: 10px; padding: 10px; }
+        .chat-message { margin-bottom: 10px; }
+        .pdf-list { border: 1px solid #ccc; height: 200px; overflow-y: auto; padding: 10px; }
+        .pdf-list ul { list-style: none; padding: 0; margin: 0; }
+        .pdf-list li { padding: 5px; border-bottom: 1px solid #eee; }
+        .pdf-list a { text-decoration: none; color: #0066cc; cursor: pointer; }
+        .pdf-list a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>{{ workspace.name }}</h1>
+    <p><a href="{% url 'dashboard' %}">Back to Dashboard</a> | <a href="{% url 'logout' %}">Logout</a></p>
+    
+    <div class="container">
+        <div class="left-section">
+            <h2>PDFs</h2>
+            <form method="post" action="{% url 'upload_pdf' workspace.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="text" name="title" placeholder="PDF Title" required>
+                <input type="file" name="file" accept=".pdf" required>
+                <button type="submit">Upload PDF</button>
+            </form>
+            
+            <div class="pdf-list">
+                {% if pdf_files %}
+                    <ul>
+                        {% for pdf in pdf_files %}
+                            <li>
+                                <a href="#" onclick="loadPDF('{% url 'view_pdf' pdf.id %}'); return false;">{{ pdf.title }}</a>
+                                (Uploaded by {{ pdf.uploaded_by.username }})
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No PDFs uploaded yet.</p>
+                {% endif %}
+            </div>
+            
+            <h3>PDF Viewer</h3>
+            <div class="pdf-viewer">
+                <div class="pdf-controls">
+                    <button onclick="previousPage()">Previous Page</button>
+                    <span id="pageInfo">No PDF loaded</span>
+                    <button onclick="nextPage()">Next Page</button>
+                </div>
+                <canvas id="pdfCanvas" width="800" height="200"></canvas>
+            </div>
+        </div>
+        
+        <div class="right-section">
+            <h2>Chat</h2>
+            <p id="connection-status" style="font-size: 12px; color: gray;">Connecting...</p>
+            <div id="chat-messages" class="chat-box">
+                {% for message in messages %}
+                    <div class="chat-message">
+                        <strong>{{ message.user.username }}</strong> ({{ message.timestamp|date:"H:i" }}): {{ message.message }}
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <form id="chat-form">
+                {% csrf_token %}
+                <input type="text" id="chat-message-input" placeholder="Type a message..." required>
+                <button type="submit">Send</button>
+            </form>
+            
+            <h3>Members</h3>
+            <ul>
+                {% for member in members %}
+                    <li>{{ member.user.username }}</li>
+                {% endfor %}
+            </ul>
+            
+            <h3>Invite User</h3>
+            {% if available_users %}
+                <form method="post" action="{% url 'invite_to_workspace' workspace.id %}">
+                    {% csrf_token %}
+                    <select name="username" required>
+                        <option value="">Select a user...</option>
+                        {% for user in available_users %}
+                            <option value="{{ user.username }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit">Invite</button>
+                </form>
+            {% else %}
+                <p>All users are already members of this workspace.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <script>
+        // PDF.js Viewer functions
+        let currentPdf = null;
+        let currentPage = 1;
+        let pdfPages = 0;
+        
+        async function loadPDF(url) {
+            try {
+                const canvas = document.getElementById('pdfCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Loading indicator
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Loading PDF...', canvas.width / 2, canvas.height / 2);
+                
+                const loadingTask = pdfjsLib.getDocument(url);
+                currentPdf = await loadingTask.promise;
+                pdfPages = currentPdf.numPages;
+                currentPage = 1;
+                
+                await renderPage(currentPage);
+                document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${pdfPages}`;
+                
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                alert('Failed to load PDF');
+            }
+        }
+        
+        async function renderPage(pageNum) {
+            if (!currentPdf || pageNum < 1 || pageNum > pdfPages) return;
+            
+            const canvas = document.getElementById('pdfCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            try {
+                const page = await currentPdf.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 1.5 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            } catch (error) {
+                console.error('Error rendering page:', error);
+            }
+        }
+        
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage(currentPage);
+                document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${pdfPages}`;
+            }
+        }
+        
+        function nextPage() {
+            if (currentPage < pdfPages) {
+                currentPage++;
+                renderPage(currentPage);
+                document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${pdfPages}`;
+            }
+        }
+        
+        const chatMessagesDiv = document.getElementById('chat-messages');
+        const chatMessageInput = document.getElementById('chat-message-input');
+        const connectionStatus = document.getElementById('connection-status');
+        
+        // Protocol based on page location
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const chatSocket = new WebSocket(
+            wsProtocol + '//' + window.location.host + '/ws/chat/{{ workspace.id }}/'
+        );
+        
+        chatSocket.onopen = function(e) {
+            console.log('WebSocket connected');
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.style.color = 'green';
+        };
+        
+        chatSocket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            connectionStatus.textContent = 'Connection error - Make sure server is running with Daphne';
+            connectionStatus.style.color = 'red';
+        };
+        
+        chatSocket.onclose = function(e) {
+            console.log('WebSocket closed');
+            connectionStatus.textContent = 'Disconnected';
+            connectionStatus.style.color = 'red';
+        };
+        
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            // Remove any duplicate "You" messages
+            const existingMessages = chatMessagesDiv.getElementsByClassName('chat-message');
+            for (let i = existingMessages.length - 1; i >= 0; i--) {
+                if (existingMessages[i].style.opacity === '0.7' && existingMessages[i].innerHTML.includes(data.message)) {
+                    existingMessages[i].remove();
+                    break;
+                }
+            }
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            messageElement.innerHTML = '<strong>' + data.username + '</strong>: ' + data.message;
+            chatMessagesDiv.appendChild(messageElement);
+            chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+        };
+        
+        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const message = chatMessageInput.value;
+            if (message.trim()) {
+                if (chatSocket.readyState === WebSocket.OPEN) {
+                    // Immediately show the user's own message
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'chat-message';
+                    messageElement.style.opacity = '0.7';
+                    messageElement.innerHTML = '<strong>You</strong>: ' + message;
+                    chatMessagesDiv.appendChild(messageElement);
+                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                    
+                    // Send to server
+                    chatSocket.send(JSON.stringify({
+                        'message': message
+                    }));
+                    chatMessageInput.value = '';
+                } else {
+                    alert('WebSocket is not connected.\n\nPlease make sure you are running the server with Daphne:\n\n  daphne -b 0.0.0.0 -p 8000 cursortest.asgi:application\n\n\nThen refresh this page.');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
