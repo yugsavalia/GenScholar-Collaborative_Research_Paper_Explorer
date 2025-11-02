@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     'channels',
     'accounts',
     'workspaces',
-    'pdfs',
+    'pdf',
     'chat',
 ]
 
@@ -59,7 +59,7 @@ ROOT_URLCONF = 'genscholar.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR.parent / 'frontend'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
