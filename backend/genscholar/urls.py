@@ -25,5 +25,5 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', include('workspaces.urls')),
-    path('pdfs/', include('pdfs.urls')),
+    path('pdf/', include('pdf.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
