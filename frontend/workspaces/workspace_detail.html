@@ -1,9 +1,8 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>{{ workspace.name }}</title>
-    <!-- PDF.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -68,7 +67,7 @@
                     <ul>
                         {% for pdf in pdf_files %}
                             <li>
-                                <a href="#" onclick="loadPDF('{% url 'view_pdf' pdf.id %}'); return false;">{{ pdf.title }}</a>
+                                <a href="#" onclick="loadPDF('{{ pdf.file.url }}'); return false;">{{ pdf.title }}</a>
                                 (Uploaded by {{ pdf.uploaded_by.username }})
                             </li>
                         {% endfor %}
@@ -198,6 +197,7 @@
             }
         }
         
+        // --- CHAT SCRIPT ---
         const chatMessagesDiv = document.getElementById('chat-messages');
         const chatMessageInput = document.getElementById('chat-message-input');
         const connectionStatus = document.getElementById('connection-status');
@@ -228,14 +228,9 @@
         
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
-            // Remove any duplicate "You" messages
-            const existingMessages = chatMessagesDiv.getElementsByClassName('chat-message');
-            for (let i = existingMessages.length - 1; i >= 0; i--) {
-                if (existingMessages[i].style.opacity === '0.7' && existingMessages[i].innerHTML.includes(data.message)) {
-                    existingMessages[i].remove();
-                    break;
-                }
-            }
+            
+            // FIX #2: Removed the logic that tried to delete the "optimistic" message.
+            // Now, we only add the message when it comes from the server.
             
             const messageElement = document.createElement('div');
             messageElement.className = 'chat-message';
@@ -249,13 +244,10 @@
             const message = chatMessageInput.value;
             if (message.trim()) {
                 if (chatSocket.readyState === WebSocket.OPEN) {
-                    // Immediately show the user's own message
-                    const messageElement = document.createElement('div');
-                    messageElement.className = 'chat-message';
-                    messageElement.style.opacity = '0.7';
-                    messageElement.innerHTML = '<strong>You</strong>: ' + message;
-                    chatMessagesDiv.appendChild(messageElement);
-                    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+                    
+                    // FIX #2: Removed the "optimistic" message creation here.
+                    // We will now ONLY send to the server, and let the onmessage
+                    // handler be the single source of truth for new messages.
                     
                     // Send to server
                     chatSocket.send(JSON.stringify({
@@ -270,4 +262,3 @@
     </script>
 </body>
 </html>
-

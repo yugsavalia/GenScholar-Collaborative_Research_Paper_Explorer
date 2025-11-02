@@ -32,7 +32,7 @@ def workspace_detail_view(request, workspace_id):
         return redirect('dashboard')
     
     # Get PDFs for this workspace
-    from pdfs.models import PDFFile
+    from pdf.models import PDFFile
     pdf_files = PDFFile.objects.filter(workspace=workspace)
     
     # Get chat messages
