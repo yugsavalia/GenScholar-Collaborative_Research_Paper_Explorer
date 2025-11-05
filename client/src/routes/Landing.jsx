@@ -1,10 +1,10 @@
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import logo from '../assets/logo.jpg';
 import Footer from '../components/Footer';
 import Button from '../components/Button';
 
 export default function Landing() {
-  const [, navigate] = useNavigate();
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-[#121212] flex flex-col">
@@ -32,14 +32,14 @@ export default function Landing() {
           
           <div className="flex gap-4 justify-center flex-wrap">
             <Button
-              onClick={() => navigate('/auth?tab=create')}
+              onClick={() => setLocation('/auth?tab=create')}
               variant="primary"
               data-testid="button-get-started"
             >
               Get Started
             </Button>
             <Button
-              onClick={() => navigate('/auth?tab=login')}
+              onClick={() => setLocation('/auth?tab=login')}
               variant="secondary"
               data-testid="button-login"
             >

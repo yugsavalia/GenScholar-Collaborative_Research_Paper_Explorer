@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { Formik, Form, Field } from 'formik';
 import { useAuth } from '../context/AuthContext';
 import { loginSchema, createAccountSchema } from '../utils/validators';
@@ -7,8 +7,7 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 
 export default function Auth() {
-  const [location] = useLocation();
-  const [, navigate] = useNavigate();
+  const [location, setLocation] = useLocation();
   const { login, isAuthenticated } = useAuth();
   
   const searchParams = new URLSearchParams(location.split('?')[1]);
@@ -17,14 +16,14 @@ export default function Auth() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      setLocation('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, setLocation]);
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
       login(values.email, values.password);
-      navigate('/dashboard');
+      setLocation('/dashboard');
     } catch (error) {
       console.error('Auth error:', error);
     } finally {

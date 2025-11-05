@@ -1,15 +1,15 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { useAuth } from '../context/AuthContext';
 
 export default function Logout() {
-  const [, navigate] = useNavigate();
+  const [, setLocation] = useLocation();
   const { logout } = useAuth();
 
   useEffect(() => {
     logout();
-    navigate('/');
-  }, [logout, navigate]);
+    setLocation('/');
+  }, [logout, setLocation]);
 
   return (
     <div className="min-h-screen bg-[#121212] flex items-center justify-center">
