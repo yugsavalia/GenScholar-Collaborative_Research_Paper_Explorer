@@ -19,6 +19,8 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
+from chatbot import views as chatbot_views
+from workspaces import views as workspace_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,4 +28,6 @@ urlpatterns = [
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', include('workspaces.urls')),
     path('pdfs/', include('pdfs.urls')),
+    path('workspace/<int:workspace_id>/delete/', workspace_views.delete_workspace_view, name='delete_workspace'),
+    path('api/chatbot/ask/', chatbot_views.ask_question, name='chatbot_ask'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

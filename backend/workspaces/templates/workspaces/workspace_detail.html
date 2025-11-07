@@ -55,6 +55,10 @@
                 <input type="file" name="file" accept=".pdf" required>
                 <button type="submit">Upload PDF</button>
             </form>
+            <form method="GET" action="{% url 'workspace_detail' workspace.id %}" style="margin: 15px 0;">
+                <input type="text" name="pdf_q" placeholder="Search PDFs in this workspace..." value="{{ pdf_search_query|default:'' }}">
+                <button type="submit">Search</button>
+            </form>
             <div class="pdf-list">
                 {% if pdf_files %}
                     <ul>

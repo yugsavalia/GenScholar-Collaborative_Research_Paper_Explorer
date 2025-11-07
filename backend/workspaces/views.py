@@ -6,13 +6,25 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import Workspace, WorkspaceMember
-
+from pdfs.models import PDFFile
+from chatbot.models import AIChatMessage
 
 @login_required
 def dashboard_view(request):
-    # Get workspaces where user is a member
+    # --- UPDATED: Search Logic ---
+    search_query = request.GET.get('q', '') # Get the search query, or default to empty
+    
+    # Get base workspaces
     workspaces = Workspace.objects.filter(members__user=request.user).distinct()
-    return render(request, 'workspaces/dashboard.html', {'workspaces': workspaces})
+    
+    if search_query:
+        # Filter by name if a query exists
+        workspaces = workspaces.filter(name__icontains=search_query)
+
+    return render(request, 'workspaces/dashboard.html', {
+        'workspaces': workspaces,
+        'search_query': search_query # Pass the query back to the template
+    })
 
 
 @login_required
@@ -35,37 +47,43 @@ def workspace_detail_view(request, workspace_id):
     if not WorkspaceMember.objects.filter(workspace=workspace, user=request.user).exists():
         return redirect('dashboard')
     
-    # Get PDFs for this workspace
-    from pdfs.models import PDFFile
+    # --- UPDATED: PDF Search Logic ---
+    pdf_search_query = request.GET.get('pdf_q', '') # Use 'pdf_q' to avoid conflicts
+    
+    # Get base PDF list
     pdf_files = PDFFile.objects.filter(workspace=workspace)
+    
+    if pdf_search_query:
+        # Filter by title if a query exists
+        pdf_files = pdf_files.filter(title__icontains=pdf_search_query)
+    # --- END UPDATE ---
     
     # Get public chat messages
     from chat.models import ChatMessage
-    messages = ChatMessage.objects.filter(workspace=workspace)[:50]
+    messages = ChatMessage.objects.filter(workspace=workspace).order_by('timestamp') # Added ordering
     
-    # Get private AI chat messages for *this user only*
-    from chatbot.models import AIChatMessage
+    # Get private AI chat messages
     ai_messages = AIChatMessage.objects.filter(
         workspace=workspace,
         user=request.user
-    ).order_by('timestamp') # Get all messages in order
-    
+    ).order_by('timestamp')
+
     # Get workspace members
     members = WorkspaceMember.objects.filter(workspace=workspace)
     
-    # Get all users for invitation (excluding existing members and current user)
+    # Get all users for invitation
     existing_member_ids = [m.user.id for m in members]
     available_users = User.objects.exclude(id__in=existing_member_ids + [request.user.id])
-   
+    
     return render(request, 'workspaces/workspace_detail.html', {
         'workspace': workspace,
         'pdf_files': pdf_files,
         'messages': messages,
-        'ai_messages': ai_messages, 
+        'ai_messages': ai_messages,
         'members': members,
         'available_users': available_users,
+        'pdf_search_query': pdf_search_query, # Pass the query back to the template
     })
-
 
 @login_required
 def invite_to_workspace_view(request, workspace_id):
