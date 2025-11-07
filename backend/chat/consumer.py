@@ -5,9 +5,11 @@ from django.contrib.auth.models import User
 from .models import ChatMessage
 from workspaces.models import Workspace, WorkspaceMember
 
+
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.workspace_id = self.scope['url_route']['kwargs']['workspace_id']
+        # --- This is the correct group name ---
         self.room_group_name = f'workspace_{self.workspace_id}'
 
         # Check if user is authenticated and a member
@@ -32,34 +34,39 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-    # Receive message from WebSocket
+    # Receive message from WebSocket (from a human user)
     async def receive(self, text_data):
         data = json.loads(text_data)
         message = data['message']
         username = self.scope['user'].username
 
         # Save message to database
-        await self.save_message(self.workspace_id, self.scope['user'].id, message)
+        # --- We will get the timestamp from the saved object ---
+        saved_message = await self.save_message(self.workspace_id, self.scope['user'].id, message)
 
         # Send message to room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
-                'message': message,
+                'message': saved_message.message,
                 'username': username,
+                'timestamp': saved_message.timestamp.isoformat() # <-- Added timestamp
             }
         )
 
-    # Receive message from room group
+    # Receive message from room group (from human OR AI Bot)
     async def chat_message(self, event):
         message = event['message']
         username = event['username']
+        # --- UPDATED: Get the timestamp from the event ---
+        timestamp = event.get('timestamp', '') # Use .get() for safety
 
-        # Send message to WebSocket
+        # Send message down to the WebSocket (the frontend)
         await self.send(text_data=json.dumps({
             'message': message,
             'username': username,
+            'timestamp': timestamp # <-- Send timestamp to frontend
         }))
 
     @database_sync_to_async
@@ -71,11 +78,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def save_message(self, workspace_id, user_id, message):
         workspace = Workspace.objects.get(id=workspace_id)
         user = User.objects.get(id=user_id)
-        ChatMessage.objects.create(
+        # --- UPDATED: Return the created message ---
+        new_message = ChatMessage.objects.create(
             workspace=workspace,
             user=user,
             message=message
         )
-
-
-
+        return new_message # Return it so we can get its timestamp
