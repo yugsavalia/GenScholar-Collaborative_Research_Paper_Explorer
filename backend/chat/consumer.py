@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 from .models import ChatMessage
 from workspaces.models import Workspace, WorkspaceMember
 
-
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.workspace_id = self.scope['url_route']['kwargs']['workspace_id']
