@@ -14,17 +14,12 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-
-# --- UPDATED IMPORTS ---
-# We are now using unstructured
 from unstructured.partition.pdf import partition_pdf
-# Using Cohere as requested
 from langchain_cohere import CohereEmbeddings 
 
 
 # --- 1. LOAD MODELS (These load ONCE when Django starts) ---
 
-# Your embedding model (Cohere)
 try:
     print("Loading Embedding Model (Cohere)...")
     EMBEDDINGS = CohereEmbeddings(
