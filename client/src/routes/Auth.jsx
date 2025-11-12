@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { loginSchema, createAccountSchema } from '../utils/validators';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import Footer from '../components/Footer';
 
 export default function Auth() {
   const [location, setLocation] = useLocation();
@@ -31,86 +32,121 @@ export default function Auth() {
     }
   };
 
+  const getInitialValues = () => {
+    if (activeTab === 'login') {
+      return { email: '', password: '' };
+    }
+    return { email: '', password: '', confirmPassword: '' };
+  };
+
   return (
-    <div className="min-h-screen bg-[#121212] flex items-center justify-center px-4">
-      <div className="w-full max-w-[400px]">
-        <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-8">
-          <h1 className="text-2xl font-bold text-[#E0E0E0] mb-6 text-center">
-            GenScholar
-          </h1>
-          
-          <div className="flex mb-6 border-b border-[#2A2A2A]">
-            <button
-              onClick={() => setActiveTab('login')}
-              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'login'
-                  ? 'text-[#4FC3F7] border-b-2 border-[#4FC3F7]'
-                  : 'text-[#BDBDBD] hover:text-[#E0E0E0]'
-              }`}
-              data-testid="button-tab-login"
+    <div className="min-h-screen bg-[#121212] flex flex-col">
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[500px]">
+          <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-8">
+            <h1 className="text-2xl font-bold text-[#E0E0E0] mb-2">
+              {activeTab === 'create' ? 'Create Account' : 'Login'}
+            </h1>
+            <p className="text-[#BDBDBD] text-sm mb-6">
+              {activeTab === 'create' 
+                ? 'Sign up to start collaborating on research PDFs'
+                : 'Welcome back! Sign in to continue'}
+            </p>
+            
+            <Formik
+              key={activeTab}
+              initialValues={getInitialValues()}
+              validationSchema={activeTab === 'login' ? loginSchema : createAccountSchema}
+              onSubmit={handleSubmit}
             >
-              Login
-            </button>
-            <button
-              onClick={() => setActiveTab('create')}
-              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'create'
-                  ? 'text-[#4FC3F7] border-b-2 border-[#4FC3F7]'
-                  : 'text-[#BDBDBD] hover:text-[#E0E0E0]'
-              }`}
-              data-testid="button-tab-create"
-            >
-              Create Account
-            </button>
+              {({ errors, touched, isSubmitting }) => (
+                <Form>
+                  <Field name="email">
+                    {({ field }) => (
+                      <Input
+                        {...field}
+                        type="email"
+                        label="Email"
+                        placeholder="researcher@university.edu"
+                        error={touched.email && errors.email}
+                        data-testid="input-email"
+                      />
+                    )}
+                  </Field>
+
+                  <Field name="password">
+                    {({ field }) => (
+                      <Input
+                        {...field}
+                        type="password"
+                        label="Password"
+                        placeholder="••••••••"
+                        error={touched.password && errors.password}
+                        data-testid="input-password"
+                      />
+                    )}
+                  </Field>
+
+                  {activeTab === 'create' && (
+                    <Field name="confirmPassword">
+                      {({ field }) => (
+                        <Input
+                          {...field}
+                          type="password"
+                          label="Confirm Password"
+                          placeholder="••••••••"
+                          error={touched.confirmPassword && errors.confirmPassword}
+                          data-testid="input-confirm-password"
+                        />
+                      )}
+                    </Field>
+                  )}
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="w-full"
+                    disabled={isSubmitting}
+                    data-testid="button-submit-auth"
+                  >
+                    {activeTab === 'login' ? 'Login' : 'Sign Up'}
+                  </Button>
+
+                  <p className="text-center text-[#BDBDBD] text-sm mt-4">
+                    {activeTab === 'login' ? (
+                      <>
+                        Don't have an account?{' '}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('create')}
+                          className="text-[#4FC3F7] hover:underline"
+                          data-testid="button-switch-to-create"
+                        >
+                          Create Account
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        Already have an account?{' '}
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('login')}
+                          className="text-[#4FC3F7] hover:underline"
+                          data-testid="button-switch-to-login"
+                        >
+                          Login
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </Form>
+              )}
+            </Formik>
           </div>
-
-          <Formik
-            initialValues={{ email: '', password: '' }}
-            validationSchema={activeTab === 'login' ? loginSchema : createAccountSchema}
-            onSubmit={handleSubmit}
-          >
-            {({ errors, touched, isSubmitting }) => (
-              <Form>
-                <Field name="email">
-                  {({ field }) => (
-                    <Input
-                      {...field}
-                      type="email"
-                      label="Email"
-                      placeholder="Enter your email"
-                      error={touched.email && errors.email}
-                      data-testid="input-email"
-                    />
-                  )}
-                </Field>
-
-                <Field name="password">
-                  {({ field }) => (
-                    <Input
-                      {...field}
-                      type="password"
-                      label="Password"
-                      placeholder="Enter your password"
-                      error={touched.password && errors.password}
-                      data-testid="input-password"
-                    />
-                  )}
-                </Field>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="w-full"
-                  disabled={isSubmitting}
-                  data-testid="button-submit-auth"
-                >
-                  {activeTab === 'login' ? 'Login' : 'Create Account'}
-                </Button>
-              </Form>
-            )}
-          </Formik>
         </div>
       </div>
+      
+      <Footer />
     </div>
   );
 }
