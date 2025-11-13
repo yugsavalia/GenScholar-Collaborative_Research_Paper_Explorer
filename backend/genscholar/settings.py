@@ -9,9 +9,12 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+# my_project/settings.py
+import os
+from dotenv import load_dotenv
 from pathlib import Path
 
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -31,6 +34,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'testserver']
 # Application definition
 
 INSTALLED_APPS = [
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +46,9 @@ INSTALLED_APPS = [
     'workspaces',
     'pdfs',
     'chat',
+    'chatbot',
+
+    'background_task',
 ]
 
 MIDDLEWARE = [
@@ -76,12 +83,17 @@ WSGI_APPLICATION = 'cursortest.wsgi.application'
 # Channels configuration
 ASGI_APPLICATION = 'cursortest.asgi.application'
 
+# --- Channel Layer Configuration ---
+# This allows your HTTP views to talk to your WebSocket consumers
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            # This connects to the default Redis/Memurai server on your computer
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
 }
-
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -145,3 +157,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
