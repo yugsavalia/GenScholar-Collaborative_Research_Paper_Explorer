@@ -238,7 +238,7 @@
   }
 
   html {
-    @apply dark;
+    color-scheme: dark;
   }
 
   body {
