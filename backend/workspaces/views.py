@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from .models import Workspace, WorkspaceMember
-from pdfs.models import PDFFile
+from pdf.models import PDFFile
 from chatbot.models import AIChatMessage
 
 @login_required
@@ -128,7 +128,7 @@ def delete_workspace_view(request, workspace_id):
             print(f"Error deleting index folder: {e}")
             
     # Delete all associated PDF files
-    from pdfs.models import PDFFile
+    from pdf.models import PDFFile
     pdf_files = PDFFile.objects.filter(workspace=workspace)
     for pdf in pdf_files:
         if os.path.exists(pdf.file.path):

@@ -4,7 +4,7 @@ from functools import lru_cache
 from django.conf import settings
 
 # Import models from other apps
-from pdfs.models import PDFFile
+from pdf.models import PDFFile
 from workspaces.models import Workspace
 
 # LangChain/AI Imports

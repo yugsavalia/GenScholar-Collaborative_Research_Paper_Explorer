@@ -1,5 +1,5 @@
 """
-URL configuration for cursortest project.
+URL configuration for genscholar project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
@@ -27,7 +27,7 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('', include('workspaces.urls')),
-    path('pdfs/', include('pdfs.urls')),
+    path('pdf/', include('pdf.urls')),
     path('workspace/<int:workspace_id>/delete/', workspace_views.delete_workspace_view, name='delete_workspace'),
     path('api/chatbot/ask/', chatbot_views.ask_question, name='chatbot_ask'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
