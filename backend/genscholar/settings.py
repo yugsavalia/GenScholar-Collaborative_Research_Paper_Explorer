@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'workspaces',
     'pdf',
     'chat',
+    'chatbot',
 ]
 
 MIDDLEWARE = [

@@ -286,40 +286,48 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // --- WebSocket Setup ---
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const chatSocket = new WebSocket(
-            wsProtocol + '//' + window.location.host + '/ws/chat/' + workspaceId + '/'
-        );
-        
-        chatSocket.onopen = function(e) { /* ... same as before ... */ 
-            console.log('WebSocket connected');
-            connectionStatus.textContent = 'Connected';
-            connectionStatus.style.color = 'green';
-            mainChatMessages.scrollTop = mainChatMessages.scrollHeight;
-            aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
-        };
-        chatSocket.onerror = function(error) { /* ... same as before ... */ 
-            console.error('WebSocket error:', error);
-            connectionStatus.textContent = 'Connection error - Make sure server is running with Daphne';
-            connectionStatus.style.color = 'red';
-        };
-        chatSocket.onclose = function(e) { /* ... same as before ... */ 
-            console.log('WebSocket closed');
-            connectionStatus.textContent = 'Disconnected';
-            connectionStatus.style.color = 'red';
-        };
-        
-        // --- *** UPDATED: onmessage *** ---
-        // Now *only* handles public main chat
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
+        let chatSocket;
+
+        function connectWebSocket() {
+            // --- WebSocket Setup ---
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            chatSocket = new WebSocket(
+                wsProtocol + '//' + window.location.host + '/ws/chat/' + workspaceId + '/'
+            );
+
+            chatSocket.onopen = function(e) {
+                console.log('WebSocket connected');
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.style.color = 'green';
+                mainChatMessages.scrollTop = mainChatMessages.scrollHeight;
+                aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+            };
+
+            chatSocket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                connectionStatus.textContent = 'Connection error';
+                connectionStatus.style.color = 'red';
+            };
+
+            chatSocket.onclose = function(e) {
+                console.log('WebSocket closed. Reconnecting...');
+                connectionStatus.textContent = 'Disconnected. Retrying...';
+                connectionStatus.style.color = 'orange';
+                // Attempt to reconnect after a short delay
+                setTimeout(connectWebSocket, 3000); // Reconnect every 3 seconds
+            };
             
-            // This now ONLY handles human messages.
-            if (data.username !== 'AI_Bot' && !data.message.startsWith('/ai')) {
-                appendMessage(data.username, data.message, mainChatMessages);
-            }
-        };
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                
+                if (data.username !== 'AI_Bot' && !data.message.startsWith('/ai')) {
+                    appendMessage(data.username, data.message, mainChatMessages);
+                }
+            };
+        }
+
+        // Initial connection attempt
+        connectWebSocket();
         
         // --- Form handler for MAIN CHAT (Unchanged) ---
         document.getElementById('main-chat-form').addEventListener('submit', function(e) {
