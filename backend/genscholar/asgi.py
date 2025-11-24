@@ -20,13 +20,15 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'genscholar.settings')
 django_asgi_app = get_asgi_application()
 
 # Import routing after Django is configured
-from chat import routing
+from chat import routing as chat_routing
+from threads import routing as threads_routing
+from notifications import routing as notifications_routing
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter(
-            routing.websocket_urlpatterns
+            chat_routing.websocket_urlpatterns + threads_routing.websocket_urlpatterns + notifications_routing.websocket_urlpatterns
         )
     ),
 })
