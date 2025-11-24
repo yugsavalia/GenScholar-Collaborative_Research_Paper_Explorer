@@ -49,13 +49,14 @@ export default function ChatbotPanel({ workspaceId }) {
     setIsTyping(true);
 
     try {
-      //CALL API
+      // Call the real API
       const response = await askChatbot(workspaceId, userInput);
       
-      
+      // Remove markdown asterisks from the response
       const cleanAnswer = (response.ai_answer || 'Sorry, I could not generate a response.')
-        .replace(/\*\*/g, '') 
-        .replace(/\*/g, ''); 
+        .replace(/\*\*/g, '') // Remove bold markdown (**text**)
+        .replace(/\*/g, ''); // Remove any remaining asterisks
+      
       const botMessage = {
         id: generateId(),
         role: 'assistant',
@@ -69,6 +70,7 @@ export default function ChatbotPanel({ workspaceId }) {
       shouldAutoScroll.current = true;
     } catch (error) {
       console.error('Chatbot error:', error);
+      // Remove markdown asterisks from error messages too
       const cleanError = (error.message || 'Failed to get response from AI.')
         .replace(/\*\*/g, '')
         .replace(/\*/g, '');

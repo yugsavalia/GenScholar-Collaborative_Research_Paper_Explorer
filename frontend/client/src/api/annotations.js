@@ -8,10 +8,15 @@ export async function listAnnotations(workspaceId, pdfId) {
   if (!useBackend) {
     return storage.get(STORAGE_KEYS.ANNOTATIONS(workspaceId, pdfId)) || [];
   }
-  const res = await apiGet(`/api/workspaces/${workspaceId}/pdfs/${pdfId}/annotations/`, {
+  // Backend endpoint is /api/annotations/?pdf_id=X (not nested)
+  const res = await apiGet(`/api/annotations/?pdf_id=${pdfId}`, {
     credentials: 'include',
   });
-  return res?.data?.annotations || [];
+  // DRF ViewSet returns array directly or {results: [...]}
+  if (Array.isArray(res)) {
+    return res;
+  }
+  return res?.results || res?.data?.annotations || [];
 }
 
 export async function createAnnotation(workspaceId, pdfId, payload) {
@@ -22,10 +27,16 @@ export async function createAnnotation(workspaceId, pdfId, payload) {
     storage.set(key, [...current, withId]);
     return withId;
   }
-  const res = await apiPost(`/api/workspaces/${workspaceId}/pdfs/${pdfId}/annotations/`, payload, {
+  // Backend endpoint is /api/annotations/ (not nested)
+  // Need to include pdf_id in the payload
+  const res = await apiPost(`/api/annotations/`, {
+    ...payload,
+    pdf: pdfId,
+  }, {
     credentials: 'include',
   });
-  return res?.data?.annotation || res?.data;
+  // DRF ViewSet returns the created object directly (not wrapped in data)
+  return res;
 }
 
 export async function deleteAnnotation(workspaceId, pdfId, id) {

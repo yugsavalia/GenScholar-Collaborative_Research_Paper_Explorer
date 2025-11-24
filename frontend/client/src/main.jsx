@@ -7,6 +7,10 @@ import './utils/pdf';
 import 'react-pdf/dist/Page/TextLayer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import { initializeCsrfToken } from './utils/csrf';
+import { initTheme } from './utils/theme';
+
+// Initialize theme on app load
+initTheme();
 
 // Initialize CSRF token on app load
 initializeCsrfToken().catch(err => {

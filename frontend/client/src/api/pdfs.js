@@ -11,7 +11,10 @@ import { API_BASE_URL } from './config.js';
  * @returns {Promise<Array>} - Array of PDF objects
  */
 export async function getPdfs(workspaceId) {
-  const response = await fetch(`${API_BASE_URL}/api/pdfs/?workspace=${workspaceId}`, {
+  const url = `${API_BASE_URL}/api/pdfs/?workspace=${workspaceId}`;
+  console.log('[API] Fetching PDFs from:', url);
+  
+  const response = await fetch(url, {
     method: 'GET',
     credentials: 'include',
     headers: {
@@ -20,12 +23,18 @@ export async function getPdfs(workspaceId) {
   });
 
   if (!response.ok) {
+    console.error('[API] Failed to fetch PDFs:', response.status, response.statusText);
     throw new Error(`Failed to fetch PDFs: ${response.statusText}`);
   }
 
   const data = await response.json();
-  // DRF ViewSet returns {results: [...]} format
-  return data.results || [];
+  console.log('[API] PDFs response:', data);
+  
+  // DRF ViewSet returns {results: [...]} format for paginated responses
+  // But if not paginated, it might return array directly
+  const pdfs = Array.isArray(data) ? data : (data.results || []);
+  console.log('[API] Extracted PDFs:', pdfs.length, pdfs);
+  return pdfs;
 }
 
 /**
@@ -83,7 +92,8 @@ export async function uploadPdf(workspaceId, file, title) {
  * @returns {Promise<string>} - Blob URL for the PDF
  */
 export async function getPdfUrl(pdfId) {
-  const response = await fetch(`${API_BASE_URL}/api/pdfs/${pdfId}/download/`, {
+  // Try /file/ endpoint first (alias), fallback to /download/
+  const response = await fetch(`${API_BASE_URL}/api/pdfs/${pdfId}/file/`, {
     method: 'GET',
     credentials: 'include',
   });

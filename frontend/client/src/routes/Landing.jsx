@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import logo from '../assets/logo.jpg';
+import logo from '../assets/Genscholar_logo.png';
 import Footer from '../components/Footer';
 import Button from '../components/Button';
 
@@ -7,7 +7,7 @@ export default function Landing() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-[#121212] flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-color)' }}>
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="max-w-[600px] w-full text-center">
           <img 
@@ -16,15 +16,15 @@ export default function Landing() {
             className="landing-logo mx-auto" 
           />
           
-          <h1 className="text-4xl md:text-5xl font-bold text-[#E0E0E0] mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: 'var(--text-color)' }}>
             GenScholar
           </h1>
           
-          <p className="text-xl text-[#BDBDBD] mb-8">
+          <p className="text-xl mb-8" style={{ color: 'var(--muted-text)' }}>
             Collaborative Research Explorer
           </p>
           
-          <p className="text-[#BDBDBD] mb-12 leading-relaxed">
+          <p className="mb-12 leading-relaxed" style={{ color: 'var(--muted-text)' }}>
             Streamline your research workflow with collaborative PDF annotation, 
             threaded discussions, and AI-powered insights. Work together on research 
             papers in real-time with your team.
@@ -37,13 +37,6 @@ export default function Landing() {
               data-testid="button-get-started"
             >
               Get Started
-            </Button>
-            <Button
-              onClick={() => setLocation('/auth?tab=login')}
-              variant="secondary"
-              data-testid="button-login"
-            >
-              Login
             </Button>
           </div>
         </div>
