@@ -1,3 +1,4 @@
+
 import os
 import base64
 from functools import lru_cache
@@ -14,21 +15,27 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-from unstructured.partition.pdf import partition_pdf
+
+# --- UPDATED IMPORTS ---
+# We are now using PDFPlumberLoader
+from langchain_community.document_loaders import PDFPlumberLoader
+# Using Cohere as requested
 from langchain_cohere import CohereEmbeddings 
 
 
 # --- 1. LOAD MODELS (These load ONCE when Django starts) ---
+# (This whole section is unchanged)
 
+# Your embedding model (Cohere)
 try:
     print("Loading Embedding Model (Cohere)...")
     EMBEDDINGS = CohereEmbeddings(
         model="embed-english-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
-    print(" Cohere Embedding Model Loaded.")
+    print("✅ Cohere Embedding Model Loaded.")
 except Exception as e:
-    print(f" Error loading Cohere embedding model: {e}")
+    print(f"❌ Error loading Cohere embedding model: {e}")
     EMBEDDINGS = None
 
 # Your CHAT model (Gemini Flash)
@@ -39,9 +46,9 @@ try:
         google_api_key=os.getenv("GOOGLE_API_KEY"),
         temperature=0.2,
     )
-    print(" Google Chat LLM Loaded.")
+    print("✅ Google Chat LLM Loaded.")
 except Exception as e:
-    print(f" Error loading Google Chat LLM: {e}")
+    print(f"❌ Error loading Google Chat LLM: {e}")
     LLM = None
 
 # Your Q&A Chain (Unchanged)
@@ -59,12 +66,12 @@ PARSER = StrOutputParser()
 QA_CHAIN = PROMPT | LLM | PARSER
 
 
-# --- 2. PDF PROCESSING FUNCTION (Using unstructured) ---
+# --- 2. PDF PROCESSING FUNCTION (Using PDFPlumberLoader) ---
 
 def add_pdf_to_workspace_index(pdf_id):
     """
     Background task:
-    Takes a PDFFile ID, loads its TEXT using unstructured, and adds the text 
+    Takes a PDFFile ID, loads its TEXT using PDFPlumber, and adds the text 
     (along with filename/title) to the workspace's FAISS index.
     """
     try:
@@ -84,31 +91,29 @@ def add_pdf_to_workspace_index(pdf_id):
     workspace.save()
 
     try:
-        pdf_path = doc.file.path
-        
         # --- Get title and filename ---
         pdf_title = doc.title
-        pdf_filename = os.path.basename(doc.file.name)
+        pdf_filename = f"{doc.title}.pdf"
         source_info = f"Source Document Information: Filename is '{pdf_filename}'. Title is '{pdf_title}'.\n\nContent from this source follows:\n"
         
-        # 1. Partition the PDF using unstructured (text-only strategy)
-        print(f"[Task {doc.id}] Partitioning text from PDF: {pdf_path}...")
-   
-        elements = partition_pdf(filename=pdf_path, strategy="fast")
+        # --- THIS IS THE FIX ---
+        # 1. Load the PDF's text using PDFPlumberLoader from bytes
+        import io
+        print(f"[Task {doc.id}] Loading text from PDF with PDFPlumber from database bytes...")
+        pdf_bytes_io = io.BytesIO(doc.file)
+        loader = PDFPlumberLoader(pdf_bytes_io)
+        pages = loader.load() # This returns a list of Documents (one per page)
 
+        if not pages:
+             raise ValueError("No text could be extracted by PDFPlumber.")
+
+        # --- Inject source info into each page ---
         documents_with_source = []
-        for element in elements:
-            # We only care about text elements
-            if element.category == "Text":
-                documents_with_source.append(
-                    Document(
-                        page_content=f"{source_info}{element.text}",
-                        metadata={"source": doc.file.name}
-                    )
-                )
-
-        if not documents_with_source:
-             raise ValueError("No text could be extracted by unstructured.")
+        for page in pages:
+            # Clean up extra newlines that PDFPlumber sometimes adds
+            cleaned_content = " ".join(page.page_content.split())
+            page.page_content = f"{source_info}{cleaned_content}"
+            documents_with_source.append(page)
 
         # 2. Split all collected text
         print(f"[Task {doc.id}] Splitting text into chunks...")
@@ -159,7 +164,6 @@ def add_pdf_to_workspace_index(pdf_id):
 
 
 # --- 3. CHATBOT QUERY FUNCTIONS (This section is 100% UNCHANGED) ---
-# (get_cached_vector_store and get_chatbot_response are the same as before)
 
 @lru_cache(maxsize=10)
 def get_cached_vector_store(index_path):
@@ -207,3 +211,10 @@ def get_chatbot_response(question, workspace_id):
     except Exception as e:
         print(f"Error in get_chatbot_response: {e}")
         return "An internal error occurred while getting the answer."
+
+
+
+
+
+
+
