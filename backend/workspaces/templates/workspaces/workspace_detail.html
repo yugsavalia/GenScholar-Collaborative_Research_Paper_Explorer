@@ -34,6 +34,13 @@
         .tab-button { padding: 5px 10px; border: 1px solid #ccc; background: #f9f9f9; cursor: pointer; border-radius: 4px; }
         .tab-button.active { background: #007bff; color: white; border-color: #007bff; }
         .hidden { display: none; }
+        /* Role badge styles */
+        .workspace-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .workspace-header h1 { margin: 0; }
+        .workspace-header-right { display: flex; align-items: center; gap: 15px; }
+        .role-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: capitalize; }
+        .role-badge.role-researcher { background-color: #e8f5e9; color: #388e3c; border: 1px solid #81c784; }
+        .role-badge.role-reviewer { background-color: #fff3e0; color: #f57c00; border: 1px solid #ffb74d; }
     </style>
     
     <script>
@@ -43,8 +50,15 @@
 
 </head>
 <body>
-    <h1>{{ workspace.name }}</h1>
-    <p><a href="{% url 'dashboard' %}">Back to Dashboard</a> | <a href="{% url 'logout' %}">Logout</a></p>
+    <div class="workspace-header">
+        <h1>{{ workspace.name }}</h1>
+        <div class="workspace-header-right">
+            <span class="role-badge role-{{ current_user_role|lower }}">{{ current_user_role }}</span>
+            <div>
+                <a href="{% url 'dashboard' %}">Back to Dashboard</a> | <a href="{% url 'logout' %}">Logout</a>
+            </div>
+        </div>
+    </div>
     
     <div class="container">
         <div class="left-section">
@@ -54,6 +68,10 @@
                 <input type="text" name="title" placeholder="PDF Title" required>
                 <input type="file" name="file" accept=".pdf" required>
                 <button type="submit">Upload PDF</button>
+            </form>
+            <form method="GET" action="{% url 'workspace_detail' workspace.id %}" style="margin: 15px 0;">
+                <input type="text" name="pdf_q" placeholder="Search PDFs in this workspace..." value="{{ pdf_search_query|default:'' }}">
+                <button type="submit">Search</button>
             </form>
             <div class="pdf-list">
                 {% if pdf_files %}
@@ -121,8 +139,12 @@
                             {% if message.is_from_bot %}bot-message message-left{% else %}message-right{% endif %}">
                             <strong>{% if message.is_from_bot %}AI_Bot{% else %}{{ message.user.username }}{% endif %}</strong>
                             <br>
-                            {{ message.message }}
-                        </div>
+                            {% if message.is_from_bot %}
+                                {{ message.message }}
+                            {% else %}
+                                {{ message.message|slice:"4:" }} 
+                            {% endif %}
+                            </div>
                     {% endfor %}
                 </div>
                 <form id="ai-chat-form">
@@ -133,18 +155,47 @@
             </div>
 
             <h3>Members</h3>
-            <ul>{% for member in members %}<li>{{ member.user.username }}</li>{% endfor %}</ul>
+            <ul style="list-style: none; padding: 0;">
+                {% for member in members %}
+                    <li style="padding: 8px 0; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            {{ member.user.username }}
+                            <span class="role-badge role-{{ member.role|lower }}" style="font-size: 10px; margin-left: 8px;">
+                                {{ member.role }}
+                            </span>
+                        </div>
+                        {% if is_creator and member.user != request.user %}
+                            <form method="post" action="{% url 'change_member_role' workspace.id %}" class="change-role-form" style="display: inline-block; margin-left: 10px;" data-member-name="{{ member.user.username }}" data-current-role="{{ member.role }}">
+                                {% csrf_token %}
+                                <input type="hidden" name="member_user_id" value="{{ member.user.id }}">
+                                <select name="role" id="role-select-{{ member.user.id }}" style="font-size: 11px; padding: 2px 5px;">
+                                    <option value="RESEARCHER" {% if member.role == 'RESEARCHER' %}selected{% endif %}>Researcher</option>
+                                    <option value="REVIEWER" {% if member.role == 'REVIEWER' %}selected{% endif %}>Reviewer</option>
+                                </select>
+                            </form>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
             <h3>Invite User</h3>
-            {% if available_users %}
-                <form method="post" action="{% url 'invite_to_workspace' workspace.id %}">
-                    {% csrf_token %}
-                    <select name="username" required>
-                        <option value="">Select a user...</option>
-                        {% for user in available_users %}<option value="{{ user.username }}">{{ user.username }}</option>{% endfor %}
-                    </select>
-                    <button type="submit">Invite</button>
-                </form>
-            {% else %}<p>All users are already members of this workspace.</p>{% endif %}
+            {% if is_researcher %}
+                {% if available_users %}
+                    <form method="post" action="{% url 'invite_to_workspace' workspace.id %}">
+                        {% csrf_token %}
+                        <select name="username" required style="margin-bottom: 5px; display: block;">
+                            <option value="">Select a user...</option>
+                            {% for user in available_users %}<option value="{{ user.username }}">{{ user.username }}</option>{% endfor %}
+                        </select>
+                        <select name="role" required style="margin-bottom: 5px; display: block;">
+                            <option value="REVIEWER">Reviewer</option>
+                            <option value="RESEARCHER">Researcher</option>
+                        </select>
+                        <button type="submit">Invite</button>
+                    </form>
+                {% else %}<p>All users are already members of this workspace.</p>{% endif %}
+            {% else %}
+                <p>Only researchers can invite users to this workspace.</p>
+            {% endif %}
         </div>
     </div>
     
@@ -230,7 +281,7 @@
         // Now appends the Q&A to the AI chat box manually
         async function askAiBot(questionText) {
             // Optimistically add the user's question to the chat
-            appendMessage(currentUserUsername, questionText, aiChatMessages);
+            appendMessage(currentUserUsername, questionText.substring(4), aiChatMessages);
 
             try {
                 const response = await fetch('/api/chatbot/ask/', {
@@ -360,6 +411,33 @@
             btnAiChat.classList.add('active');
         });
 
+        // Role change confirmation dialog
+        document.querySelectorAll('.change-role-form select').forEach(function(select) {
+            select.addEventListener('change', function(e) {
+                const form = this.closest('form');
+                const memberName = form.getAttribute('data-member-name');
+                const currentRole = form.getAttribute('data-current-role');
+                const newRole = this.value;
+                
+                // Don't show confirmation if role hasn't actually changed
+                if (currentRole === newRole) {
+                    this.value = currentRole; // Reset to current value
+                    return;
+                }
+                
+                // Show confirmation dialog
+                const confirmMessage = `Are you sure you want to change ${memberName}'s role from ${currentRole} to ${newRole}?`;
+                if (confirm(confirmMessage)) {
+                    form.submit();
+                } else {
+                    // Reset to original value if cancelled
+                    this.value = currentRole;
+                }
+            });
+        });
+
     </script>
 </body>
 </html>
+
+
