@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 import json
 import re
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.middleware.csrf import get_token
@@ -577,9 +577,13 @@ def resend_verification_email_view(request):
     return redirect('signup')
 
 
-@require_http_methods(["POST"])
+@csrf_exempt
+@require_http_methods(["POST", "OPTIONS"])
 def api_request_email_verification_view(request):
     """API endpoint to send OTP email for verification."""
+    if request.method == "OPTIONS":
+        return HttpResponse(status=200)
+    
     if request.user.is_authenticated:
         return JsonResponse({
             "success": True,

@@ -288,6 +288,15 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_HEADERS = True
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "OPTIONS",
+    "PUT",
+    "PATCH",
+    "DELETE",
+]
 
 # CSRF configuration for frontend API integration
 CSRF_TRUSTED_ORIGINS = [
