@@ -11,6 +11,14 @@ django-background-tasks==1.2.8
 django-allauth==0.57.0
 psycopg2-binary>=2.9
 
+# LangChain dependencies
+langchain-google-genai>=2.0.0
+langchain-text-splitters>=0.3.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+langchain-cohere>=0.1.0
+pdfplumber>=0.11.0
+
 gunicorn==21.2.0
 uvicorn[standard]==0.24.0
 whitenoise==6.6.0
