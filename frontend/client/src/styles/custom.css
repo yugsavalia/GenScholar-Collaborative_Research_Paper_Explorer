@@ -1,3 +1,177 @@
+/* Theme CSS Variables */
+:root {
+  --bg-color: #0c0c0c;
+  --panel-color: #1a1a1a;
+  --muted-bg: #141414;
+  --text-color: #ffffff;
+  --subtext-color: #bfc6cc;
+  --accent-color: #3ea6ff;
+  --card-bg: #161616;
+  --input-bg: #1b1b1b;
+  --badge-bg: #e74c3c;
+  --border-color: #2a2a2a;
+  --muted-text: #bdbdbd;
+  --hover-bg: #2a2a2a;
+}
+
+.light-mode {
+  --bg-color: #ffffff;
+  --panel-color: #f6f7f8;
+  --muted-bg: #ffffff;
+  --text-color: #111827;
+  --subtext-color: #4b5563;
+  --accent-color: #18a0ff;
+  --card-bg: #ffffff;
+  --input-bg: #f2f4f6;
+  --badge-bg: #ff4d4f;
+  --border-color: #e0e0e0;
+  --muted-text: #666666;
+  --hover-bg: #f5f5f5;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Global theme-aware classes */
+.navbar,
+.sidebar,
+.workspace-header-row,
+.pdf-item,
+.chat-panel {
+  background: var(--panel-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button,
+input,
+textarea,
+select {
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Notification bell and badge */
+.notification-icon,
+.notification-bell {
+  background: transparent;
+  color: var(--text-color);
+}
+
+.notification-badge {
+  background: var(--badge-bg);
+  color: #fff;
+  border: 2px solid var(--panel-color);
+}
+
+.light-mode .notification-badge {
+  border: 2px solid var(--panel-color);
+}
+
+/* Workspace search input */
+.pdf-search-input,
+.workspace-search input,
+input[type="text"][placeholder*="Search"] {
+  background: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.light-mode .pdf-search-input,
+.light-mode .workspace-search input,
+.light-mode input[type="text"][placeholder*="Search"] {
+  background: var(--input-bg);
+  color: var(--text-color);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Workspace cards and tabs */
+.workspace-card,
+.workspace-tab,
+.pdf-item {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.light-mode .workspace-card,
+.light-mode .workspace-tab,
+.light-mode .pdf-item {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.pdf-item.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.light-mode .pdf-item.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+/* Sidebar panels */
+.sidebar .panel,
+.sidebar .panel-header,
+.sidebar-tabs {
+  background: var(--panel-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.light-mode .sidebar .panel,
+.light-mode .sidebar .panel-header,
+.light-mode .sidebar-tabs {
+  background: var(--panel-color);
+  color: var(--text-color);
+}
+
+/* Chat panels */
+.chat-panel {
+  background: var(--panel-color);
+  color: var(--text-color);
+}
+
+.chat-message {
+  background: var(--muted-bg);
+  color: var(--text-color);
+}
+
+.light-mode .chat-panel {
+  background: var(--panel-color);
+  color: var(--text-color);
+}
+
+.light-mode .chat-message {
+  background: #f6fbff;
+  color: #111827;
+}
+
+/* Notification dropdown */
+.notification-dropdown {
+  background: var(--panel-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.notification-item {
+  background: var(--card-bg);
+  color: var(--text-color);
+}
+
+.notification-item.unread {
+  background: var(--hover-bg);
+}
+
+.light-mode .notification-item.unread {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 /* Logo styles */
 .logo {
   display: flex;
@@ -14,7 +188,7 @@
 .logo-text {
   font-size: 1.4rem;
   font-weight: 600;
-  color: #4FC3F7;
+  color: var(--accent-color);
 }
 
 .landing-logo {
@@ -22,29 +196,30 @@
   margin-bottom: 20px;
 }
 
-/* Custom scrollbar for dark theme */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1E1E1E;
+  background: var(--panel-color);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2A2A2A;
+  background: var(--border-color);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4FC3F7;
+  background: var(--accent-color);
 }
 
 /* Text selection color */
 ::selection {
-  background: rgba(79, 195, 247, 0.3);
-  color: #E0E0E0;
+  background: var(--accent-color);
+  opacity: 0.3;
+  color: var(--text-color);
 }
 
 /* PDF text layer styles */
@@ -57,15 +232,53 @@
   height: auto !important;
 }
 
-/* PDF inline annotations */
-.react-pdf__Page__textContent.textLayer .pdf-text-highlight {
-	background-color: rgba(255, 255, 0, 0.35);
+/* PDF annotation layer styles - ensure links are clickable */
+.react-pdf__Page__annotations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  pointer-events: auto;
 }
 
-.react-pdf__Page__textContent.textLayer .pdf-text-underline {
-	text-decoration: underline;
-	text-decoration-thickness: 2px;
-	text-decoration-color: rgba(245, 158, 11, 0.9);
+.react-pdf__Page__annotations a {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* PDF annotation overlays - precise positioning for highlights and underlines */
+.annotation.highlight {
+	position: absolute;
+	background: rgba(255, 255, 0, 0.35);
+	pointer-events: none !important;
+	mix-blend-mode: multiply;
+	z-index: 1;
+}
+
+.annotation.underline {
+	position: absolute;
+	height: 2px;
+	background: var(--accent-color);
+	pointer-events: none;
+	z-index: 20;
+}
+
+.color-picker-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
+
+.color-preview {
+	flex-shrink: 0;
+}
+
+/* PDF Toolbar buttons - ensure full background coverage */
+button[data-testid^="button-tool-"] {
+	background-clip: padding-box;
+	-webkit-background-clip: padding-box;
+	border: none;
 }
 
 /* Line clamp utility */
@@ -74,4 +287,134 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* PDF anchor icon - very small, transparent, non-intrusive */
+.pdf-anchor-icon {
+  width: 16px !important;
+  height: 16px !important;
+  background: rgba(0, 0, 0, 0.15) !important;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 500;
+}
+
+.pdf-anchor-icon:hover {
+  background: rgba(0, 0, 0, 0.25) !important;
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.pdf-anchor-icon-svg {
+  color: var(--accent-color);
+  opacity: 0.9;
+  stroke-width: 1.5;
+}
+
+/* Tiny dot for selection popup - appears above selection */
+.pdf-anchor-dot {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  opacity: 0.18;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transform: translate(-50%, -125%);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  z-index: 1200;
+  pointer-events: auto;
+  border: 1px solid var(--accent-color);
+  border-opacity: 0.28;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  /* Increase hit area with invisible padding */
+  padding: 4px;
+  margin: -4px;
+}
+
+.pdf-anchor-dot::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  /* Invisible hit area for mobile */
+}
+
+.pdf-anchor-dot:focus,
+.pdf-anchor-dot:hover {
+  transform: translate(-50%, -150%) scale(1.4);
+  background: var(--accent-color);
+  opacity: 0.28;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Theme toggle button */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-color);
+}
+
+/* Pinned Notes Panel */
+.pinned-notes-body {
+  padding: 0;
+}
+
+.pinned-notes-body .pinned-display {
+  cursor: pointer;
+}
+
+.pinned-notes-body .pinned-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 40px;
+}
+
+.pinned-notes-body .pinned-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.pinned-notes-body .pinned-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.pinned-notes-body .pinned-meta {
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+.invite-container.collapsed,
+.members-list.collapsed {
+  display: none;
+}
+
+.invite-container.expanded,
+.members-list.expanded {
+  display: block;
 }

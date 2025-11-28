@@ -53,11 +53,53 @@ export async function apiRequest(method, endpoint, data = null, options = {}) {
 
   try {
     const response = await fetch(url, config);
+    
+    // Handle 204 No Content responses (common for DELETE operations)
+    if (response.status === 204) {
+      if (!response.ok) {
+        const error = new Error(`Server returned ${response.status} ${response.statusText}`);
+        error.status = response.status;
+        throw error;
+      }
+      return { success: true };
+    }
+    
+    // Check Content-Type to ensure we're getting JSON, not HTML
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      // If we get HTML, it's likely a 404 or error page
+      const text = await response.text();
+      console.error(`[API Client] Received non-JSON response (${contentType}) for ${endpoint}:`, text.substring(0, 200));
+      
+      let errorMessage = `Server returned ${response.status} ${response.statusText}`;
+      if (response.status === 404) {
+        errorMessage = `API endpoint not found: ${endpoint}. Make sure the backend server is running on ${API_BASE_URL} and the endpoint exists.`;
+      } else if (response.status === 500) {
+        errorMessage = `Server error: ${response.statusText}. Check backend server logs.`;
+      } else if (response.status === 0) {
+        errorMessage = `Cannot connect to backend server at ${API_BASE_URL}. Is the server running?`;
+      }
+      
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.data = { rawResponse: text.substring(0, 500) };
+      throw error;
+    }
+    
     const responseData = await response.json();
 
-    // Check if response is successful (HTTP status and success field)
-    if (!response.ok || responseData.success === false) {
+    // Check if response is successful (HTTP status)
+    if (!response.ok) {
       // If response has a message, use it; otherwise use status text
+      const errorMessage = responseData.message || responseData.error || responseData.detail || response.statusText;
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      error.data = responseData;
+      throw error;
+    }
+
+    // For custom endpoints, check if there's a 'success' field
+    if (responseData.success === false) {
       const errorMessage = responseData.message || responseData.error || response.statusText;
       const error = new Error(errorMessage);
       error.status = response.status;
@@ -68,11 +110,11 @@ export async function apiRequest(method, endpoint, data = null, options = {}) {
     return responseData;
   } catch (error) {
     // If it's already our custom error, rethrow it
-    if (error.status) {
+    if (error.status !== undefined) {
       throw error;
     }
     
-    // Network error or other fetch errors
+    // Network error or JSON parsing error
     throw new Error(`API request failed: ${error.message}`);
   }
 }

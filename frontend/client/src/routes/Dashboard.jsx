@@ -6,7 +6,6 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SearchBar from '../components/SearchBar';
 import WorkspaceList from '../components/WorkspaceList';
-import InvitationList from '../components/InvitationList';
 import Modal from '../components/Modal';
 import Input from '../components/Input';
 import Textarea from '../components/Textarea';
@@ -16,49 +15,11 @@ import Icon from '../components/Icon';
 export default function Dashboard() {
   const { 
     workspaces, 
-    createWorkspace, 
-    pendingInvitations, 
-    loadInvitations,
-    handleAcceptInvitation,
-    handleDeclineInvitation
+    createWorkspace
   } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Load invitations on mount (loadInvitations is now memoized)
-  useEffect(() => {
-    loadInvitations().catch(err => {
-      console.error('Failed to load invitations:', err);
-    });
-  }, [loadInvitations]);
-
-  // Refresh invitations when window gains focus (for invited user to see new invitations)
-  useEffect(() => {
-    const handleFocus = () => {
-      loadInvitations().catch(err => {
-        console.error('Failed to refresh invitations on focus:', err);
-      });
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [loadInvitations]);
-
-  const handleInvitationUpdate = async () => {
-    await loadInvitations();
-  };
-
-  const handleAccept = async (invitationId) => {
-    await handleAcceptInvitation(invitationId);
-    await loadInvitations();
-  };
-
-  const handleDecline = async (invitationId) => {
-    await handleDeclineInvitation(invitationId);
-    await loadInvitations();
-  };
 
   const handleCreateWorkspace = async (values, { setSubmitting, resetForm }) => {
     try {
@@ -74,12 +35,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--bg-color)' }}>
       <Navbar />
       
       <div className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-[#E0E0E0]">Workspaces</h1>
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--text-color)' }}>Workspaces</h1>
           <Button
             onClick={() => setIsModalOpen(true)}
             variant="primary"
@@ -91,20 +52,6 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {pendingInvitations && pendingInvitations.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-[#E0E0E0] mb-4">
-              Pending Invitations ({pendingInvitations.length})
-            </h2>
-            <InvitationList 
-              invitations={pendingInvitations} 
-              onInvitationUpdate={handleInvitationUpdate}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-            />
-          </div>
-        )}
-
         <div className="mb-8">
           <SearchBar
             value={searchQuery}
@@ -114,20 +61,6 @@ export default function Dashboard() {
         </div>
 
         <WorkspaceList workspaces={workspaces} searchQuery={searchQuery} />
-
-        <div className="mt-12 pt-8 border-t border-[#2A2A2A]">
-          <h2 className="text-xl font-semibold text-[#E0E0E0] mb-4">
-            Recent Collaborations
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-[#1E1E1E] border border-[#2A2A2A] rounded-lg p-4">
-              <p className="text-[#BDBDBD] text-sm">
-                Collaborated on <span className="text-[#4FC3F7]">ML Research</span>
-              </p>
-              <p className="text-xs text-[#BDBDBD] mt-1">2 days ago</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <Footer />
@@ -145,13 +78,23 @@ export default function Dashboard() {
           {({ errors, touched, isSubmitting }) => (
             <Form>
               <Field name="name">
-                {({ field }) => (
+                {({ field, form }) => (
                   <Input
                     {...field}
                     label="Workspace Name"
                     placeholder="Enter workspace name"
                     error={touched.name && errors.name}
                     data-testid="input-workspace-name"
+                    maxLength={25}
+                    onInput={(e) => {
+                      if (e.target.value.length > 25) {
+                        e.target.value = e.target.value.slice(0, 25);
+                      }
+                      if (e.target.value.length >= 25) {
+                        form.setFieldTouched('name', true);
+                        form.setFieldError('name', 'Max size is 25 characters');
+                      }
+                    }}
                   />
                 )}
               </Field>

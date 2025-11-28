@@ -10,20 +10,9 @@ import Dashboard from './routes/Dashboard';
 import Workspace from './routes/Workspace';
 import Contact from './routes/Contact';
 import Logout from './routes/Logout';
-
-function ProtectedRoute({ component: Component, ...rest }) {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
-        <p className="text-[#E0E0E0]">Loading...</p>
-      </div>
-    );
-  }
-
-  return isAuthenticated ? <Component {...rest} /> : <Redirect to="/auth" />;
-}
+import Profile from './routes/Profile';
+import ForgotPassword from './routes/ForgotPassword';
+import ResetPassword from './routes/ResetPassword';
 
 function AppRoutes() {
   useEffect(() => {
@@ -36,14 +25,34 @@ function AppRoutes() {
     }
   }, []);
 
+  // ProtectedRoute must be defined inside AppRoutes to have access to AuthProvider context
+  function ProtectedRoute({ component: Component, ...rest }) {
+    const { isAuthenticated, loading } = useAuth();
+
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+          <p className="text-[#E0E0E0]">Loading...</p>
+        </div>
+      );
+    }
+
+    return isAuthenticated ? <Component {...rest} /> : <Redirect to="/auth" />;
+  }
+
   return (
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/auth" component={Auth} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password/:uid/:token" component={ResetPassword} />
       <Route path="/contact" component={Contact} />
       <Route path="/logout" component={Logout} />
       <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}
+      </Route>
+      <Route path="/profile">
+        {() => <ProtectedRoute component={Profile} />}
       </Route>
       <Route path="/workspace/:id">
         {(params) => <ProtectedRoute component={Workspace} {...params} />}

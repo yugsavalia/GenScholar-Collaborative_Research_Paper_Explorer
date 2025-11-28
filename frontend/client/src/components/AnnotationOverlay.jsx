@@ -5,7 +5,8 @@ export default function AnnotationOverlay({ annotations = [], pagePixelSize, typ
 		<div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
 			{annotations.map(a =>
 				(a.quads || []).map((q, idx) => {
-
+					// Quads are already denormalized (pixel coordinates) when passed from PdfViewer
+					// Format: { left, top, width, height }
 					const rect = {
 						left: q.left ?? 0,
 						top: q.top ?? 0,

@@ -21,8 +21,11 @@ export default function PdfViewer({
 	const [maxScale, setMaxScale] = useState(null);
 	const [pageViewportSize, setPageViewportSize] = useState({ width: 0, height: 0 });
 	const [selectionPopup, setSelectionPopup] = useState(null); // {x, y, selectionData}
+	const [isEditingPageNumber, setIsEditingPageNumber] = useState(false);
+	const [pageInputValue, setPageInputValue] = useState('');
 	const containerRef = useRef(null);
 	const pageWrapperRef = useRef(null);
+	const pageInputRef = useRef(null);
 
 	const onDocumentLoadSuccess = ({ numPages }) => {
 		setNumPages(numPages);
@@ -201,6 +204,41 @@ export default function PdfViewer({
 		}
 	}, [maxScale, scale]);
 
+	const handlePageNumberClick = () => {
+		if (numPages) {
+			setPageInputValue(pageNumber.toString());
+			setIsEditingPageNumber(true);
+		}
+	};
+
+	const handlePageInputKeyDown = (e) => {
+		if (e.key === 'Enter') {
+			const inputValue = e.target.value.trim();
+			const parsedPage = parseInt(inputValue, 10);
+			
+			if (!isNaN(parsedPage) && parsedPage >= 1 && parsedPage <= numPages) {
+				setPageNumber(parsedPage);
+				if (onPageChange) {
+					onPageChange(parsedPage);
+				}
+			}
+			setIsEditingPageNumber(false);
+		} else if (e.key === 'Escape') {
+			setIsEditingPageNumber(false);
+		}
+	};
+
+	const handlePageInputBlur = () => {
+		setIsEditingPageNumber(false);
+	};
+
+	useEffect(() => {
+		if (isEditingPageNumber && pageInputRef.current) {
+			pageInputRef.current.focus();
+			pageInputRef.current.select();
+		}
+	}, [isEditingPageNumber]);
+
 	return (
 		<div className="flex flex-col h-full min-h-0">
 			<div className="flex justify-between items-center p-4 flex-shrink-0" style={{ background: 'var(--panel-color)', borderBottom: '1px solid var(--border-color)' }}>
@@ -216,9 +254,36 @@ export default function PdfViewer({
 					>
 						Previous
 					</button>
-					<span className="px-4 py-1" style={{ color: 'var(--text-color)' }}>
-						Page {pageNumber} of {numPages || '?'}
-					</span>
+					{isEditingPageNumber ? (
+						<input
+							ref={pageInputRef}
+							type="text"
+							value={pageInputValue}
+							onChange={(e) => {
+								const value = e.target.value.replace(/\D/g, '');
+								setPageInputValue(value);
+							}}
+							onKeyDown={handlePageInputKeyDown}
+							onBlur={handlePageInputBlur}
+							className="px-2 py-1 rounded"
+							style={{
+								width: '60px',
+								background: 'var(--input-bg)',
+								color: 'var(--text-color)',
+								border: '1px solid var(--border-color)',
+								textAlign: 'center',
+								fontSize: 'inherit'
+							}}
+						/>
+					) : (
+						<span 
+							className="px-4 py-1 cursor-pointer" 
+							style={{ color: 'var(--text-color)' }}
+							onClick={handlePageNumberClick}
+						>
+							Page {pageNumber} of {numPages || '?'}
+						</span>
+					)}
 					<button
 						onClick={() => setPageNumber(prev => Math.min(numPages, prev + 1))}
 						disabled={pageNumber >= numPages}

@@ -12,7 +12,8 @@ import {
   acceptInvitation,
   declineInvitation,
   getNotifications,
-  markNotificationRead
+  markNotificationRead,
+  deleteWorkspace as apiDeleteWorkspace
 } from '../api/workspaces.js';
 
 const AppContext = createContext();
@@ -27,7 +28,7 @@ export const useApp = () => {
 
 /**
  * Transform backend workspace format to frontend format
- * Backend: {id: number, name: string, created_at: string, created_by: string}
+ * Backend: {id: number, name: string, created_at: string, created_by: string, is_creator: boolean}
  * Frontend: {id: string, name: string, description: string, createdAt: string, updatedAt: string}
  */
 function transformWorkspace(backendWorkspace) {
@@ -37,6 +38,7 @@ function transformWorkspace(backendWorkspace) {
     description: '', // Backend doesn't have description field
     createdAt: backendWorkspace.created_at,
     updatedAt: backendWorkspace.created_at, // Use created_at as updatedAt since backend doesn't have updated_at
+    is_creator: backendWorkspace.is_creator || false,
   };
 }
 
@@ -49,6 +51,7 @@ export const AppProvider = ({ children }) => {
   const [pendingInvitations, setPendingInvitations] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [threadsByPdf, setThreadsByPdf] = useState({}); // {pdfId: [threads]}
 
   // Load workspaces from API on mount
   useEffect(() => {
@@ -58,6 +61,13 @@ export const AppProvider = ({ children }) => {
         // Transform backend format to frontend format
         const transformedWorkspaces = backendWorkspaces.map(transformWorkspace);
         setWorkspaces(transformedWorkspaces);
+        
+        // Set isWorkspaceCreator for each workspace
+        const creatorMap = {};
+        transformedWorkspaces.forEach(ws => {
+          creatorMap[ws.id] = ws.is_creator || false;
+        });
+        setIsWorkspaceCreator(creatorMap);
       } catch (error) {
         console.error('Error loading workspaces:', error);
         // If there's an error, set empty array
@@ -85,35 +95,39 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const deleteWorkspace = (id) => {
-    // TODO: Implement API call for deleting workspace
-    // For now, keep using localStorage (or remove from state)
-    const updated = workspaces.filter(w => w.id !== id);
-    setWorkspaces(updated);
-    // Note: This doesn't delete from backend yet
+  const deleteWorkspace = async (id) => {
+    try {
+      await apiDeleteWorkspace(id);
+      // Remove from local state
+      const updated = workspaces.filter(w => w.id !== id);
+      setWorkspaces(updated);
+    } catch (error) {
+      console.error('Error deleting workspace:', error);
+      throw error;
+    }
   };
 
   const getPdfs = useCallback(async (workspaceId) => {
-    // Fetch PDFs from API
+    // Fetch PDFs from API (metadata only - no binary data)
     try {
-      const { getPdfs: apiGetPdfs, getPdfUrl } = await import('../api/pdfs.js');
+      const { getPdfs: apiGetPdfs } = await import('../api/pdfs.js');
+      console.log('[AppContext] getPdfs called with workspaceId:', workspaceId, typeof workspaceId);
       const pdfs = await apiGetPdfs(workspaceId);
-      // Transform backend format to frontend format and fetch blob URLs
-      const transformedPdfs = await Promise.all(
-        pdfs.map(async (pdf) => {
-          const blobUrl = await getPdfUrl(pdf.id);
-          return {
-            id: String(pdf.id),
-            name: pdf.title,
-            url: blobUrl,
-            uploadedAt: pdf.uploaded_at,
-            workspaceId: String(pdf.workspace),
-          };
-        })
-      );
-      return transformedPdfs;
+      console.log('[AppContext] Raw PDFs from API:', pdfs);
+      
+      // Transform backend format to frontend format (no blob URLs yet)
+      // Blob URLs will be fetched lazily when PDF is opened
+      const transformed = pdfs.map(pdf => ({
+        id: String(pdf.id),
+        name: pdf.title || pdf.name,
+        url: null, // Will be fetched when PDF is opened
+        uploadedAt: pdf.uploaded_at,
+        workspaceId: String(pdf.workspace),
+      }));
+      console.log('[AppContext] Transformed PDFs:', transformed);
+      return transformed;
     } catch (error) {
-      console.error('Error fetching PDFs:', error);
+      console.error('[AppContext] Error fetching PDFs:', error);
       return [];
     }
   }, []);
@@ -247,6 +261,38 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
+  const getThreads = useCallback(async (workspaceId, pdfId) => {
+    try {
+      const { getThreads } = await import('../api/threads.js');
+      const threads = await getThreads(workspaceId, pdfId);
+      // Update state
+      setThreadsByPdf(prev => ({
+        ...prev,
+        [pdfId]: threads
+      }));
+      return threads;
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+      return [];
+    }
+  }, []);
+
+  const createThread = useCallback(async (workspaceId, pdfId, threadData) => {
+    try {
+      const { createThread: apiCreateThread } = await import('../api/threads.js');
+      const newThread = await apiCreateThread(workspaceId, pdfId, threadData);
+      // Update state optimistically
+      setThreadsByPdf(prev => ({
+        ...prev,
+        [pdfId]: [newThread, ...(prev[pdfId] || [])]
+      }));
+      return newThread;
+    } catch (error) {
+      console.error('Error creating thread:', error);
+      throw error;
+    }
+  }, []);
+
   const value = {
     workspaces,
     loading,
@@ -267,7 +313,10 @@ export const AppProvider = ({ children }) => {
     handleAcceptInvitation,
     handleDeclineInvitation,
     loadNotifications,
-    handleMarkNotificationRead
+    handleMarkNotificationRead,
+    threadsByPdf,
+    getThreads,
+    createThread
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

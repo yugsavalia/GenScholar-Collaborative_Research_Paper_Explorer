@@ -35,10 +35,10 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     try {
-      // Use email as username for API (Django User model uses username)
-      const userData = await apiLogin(email, password);
+      // identifier can be username OR email
+      const userData = await apiLogin(identifier, password);
       setUser(userData);
       return userData;
     } catch (error) {
@@ -47,10 +47,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signup = async (email, password1, password2) => {
+  const signup = async (username, email, password, confirm_password, verification_token) => {
     try {
-      // Use email as username for API (Django User model uses username)
-      const userData = await apiSignup(email, password1, password2);
+      // Signup requires username, email, password, confirm_password, and verification_token
+      const userData = await apiSignup(username, email, password, confirm_password, verification_token);
       setUser(userData);
       return userData;
     } catch (error) {
