@@ -20,7 +20,82 @@ from django.urls import reverse
 from .models import PendingEmailVerification, EmailOTP
 import os
 
+def validate_email_strict(email):
+    """
+    Strict email validation helper.
+    Validates that email contains a valid domain extension (.com, .in, .org, .net, etc.)
+    """
+    import re
+    
+    if not email:
+        return False, "Email is required."
+    
+    email = email.strip().lower()
+    
+    if not email:
+        return False, "Email cannot be empty."
+    
+    # Must contain exactly one '@'
+    if email.count('@') != 1:
+        return False, "Invalid email format. Email must contain exactly one '@' symbol."
+    
+    local_part, domain = email.split('@')
+    
+    # Local part validation
+    if not local_part:
+        return False, "Invalid email format. Email must have characters before '@'."
+    
+    # Domain must not be empty
+    if not domain:
+        return False, "Invalid email format. Email must have characters after '@'."
+    
+    # Domain must contain a dot
+    if '.' not in domain:
+        return False, "Invalid email format. Email must contain a valid domain extension (e.g., .com, .org)."
+    
+    # Split domain correctly – last dot is TLD
+    try:
+        domain_name, tld = domain.rsplit('.', 1)
+    except ValueError:
+        return False, "Invalid email structure."
+    
+    # Domain name must exist
+    if not domain_name:
+        return False, "Invalid email format. Domain name missing before extension."
+    
+    # TLD constraints: 2–3 letters only
+    if not tld.isalpha():
+        return False, "Invalid domain extension. Must contain only letters (e.g., .com, .in)."
+    
+    if len(tld) < 2 or len(tld) > 3:
+        return False, "Invalid domain extension. Must be 2–3 letters only (e.g., .com, .org)."
+    
+    # List of common valid TLDs
+    valid_tlds = {
+        # Common gTLDs
+        'com', 'org', 'net', 'edu', 'gov', 'mil',
+        # Country codes (common ones)
+        'in', 'uk', 'us', 'ca', 'au', 'de', 'fr', 'it', 'es', 'nl', 'be', 'ch', 'at', 'se', 'no', 'dk', 'fi', 'pl', 'cz', 'ie', 'pt', 'gr', 'ro', 'hu', 'bg', 'hr', 'sk', 'si', 'lt', 'lv', 'ee', 'lu', 'mt', 'cy',
+        'jp', 'cn', 'kr', 'tw', 'hk', 'sg', 'my', 'th', 'id', 'ph', 'vn', 'nz', 'za', 'eg', 'ma', 'ng', 'ke', 'tz', 'gh', 'et', 'ug', 'zm', 'zw', 'mw', 'mz', 'ao', 'bw', 'na', 'sz', 'ls', 'mg', 'mu', 'sc', 'km', 'dj', 'so', 'er', 'sd', 'ly', 'tn', 'dz', 'mr', 'ml', 'ne', 'td', 'cf', 'cm', 'gq', 'ga', 'cg', 'cd', 'bi', 'rw', 'ss', 'bf', 'ci', 'sn', 'gm', 'gn', 'gw', 'sl', 'lr', 'tg', 'bj', 'cv',
+        'mx', 'br', 'ar', 'cl', 'co', 'pe', 've', 'ec', 'uy', 'py', 'bo', 'cr', 'pa', 'ni', 'hn', 'sv', 'gt', 'bz', 'do', 'cu', 'jm', 'tt', 'bb', 'gd', 'lc', 'vc', 'ag', 'bs', 'dm', 'ht', 'pr', 'vi',
+        'ru', 'ua', 'by', 'kz', 'ge', 'am', 'az', 'tm', 'tj', 'kg', 'uz', 'mn', 'af', 'pk', 'bd', 'lk', 'np', 'bt', 'mv', 'mm', 'la', 'kh', 'bn',
+        'il', 'jo', 'lb', 'sy', 'iq', 'ir', 'sa', 'ae', 'om', 'ye', 'kw', 'qa', 'bh', 'tr', 'cy',
+        # Other common TLDs
+        'io', 'co', 'me', 'tv', 'cc', 'ws', 'info', 'biz', 'name', 'pro', 'mobi', 'tel', 'asia', 'jobs', 'travel', 'xxx', 'aero', 'museum', 'coop', 'int'
+    }
+    
+    # Validate TLD is in the list of valid extensions
+    if tld not in valid_tlds:
+        return False, "Invalid email format. Email must contain a valid domain extension such as .com, .in, .org, .net."
+    
+    # Global strict regex (prevents double dots, invalid chars, etc.)
+    full_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,3}$"
+    if not re.match(full_regex, email):
+        return False, "Invalid email format. Please enter a valid email address."
+    
+    return True, ""
 
+    
 def request_email_verification(request):
     """First step: Request email verification before signup."""
     if request.user.is_authenticated:
@@ -331,91 +406,122 @@ def api_signup_view(request):
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
         confirm_password = data.get('confirm_password', '')
-        
-        # Validate required fields
+
+        # -----------------------
+        # REQUIRED FIELD CHECKS
+        # -----------------------
         if not username:
             return JsonResponse({"success": False, "message": "Username is required"}, status=400)
+
         if not email:
             return JsonResponse({"success": False, "message": "Email is required"}, status=400)
+
+        # Normalize email
+        email = email.strip().lower()
+
+        # Strict email validation
+        is_valid, error_msg = validate_email_strict(email)
+        if not is_valid:
+            return JsonResponse({"success": False, "message": error_msg}, status=400)
+
+        # Email already registered?
+        if User.objects.filter(email__iexact=email).exists():
+            return JsonResponse({"success": False, "message": "Email already exists"}, status=400)
+
         if not password:
             return JsonResponse({"success": False, "message": "Password is required"}, status=400)
         if not confirm_password:
             return JsonResponse({"success": False, "message": "Please confirm your password"}, status=400)
-        
-        # Validate email format
-        try:
-            validate_email(email)
-        except ValidationError:
-            return JsonResponse({"success": False, "message": "Invalid email format. Please enter a valid email address."}, status=400)
-        
-        # Additional email validation - check for basic email structure
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, email):
-            return JsonResponse({"success": False, "message": "Invalid email format. Please enter a valid email address."}, status=400)
-        
-        # Check if OTP is verified for this email
+
+        # Check password match
+        if password != confirm_password:
+            return JsonResponse({"success": False, "message": "Passwords do not match"}, status=400)
+
+        # -----------------------
+        # OTP CHECK
+        # -----------------------
         try:
             email_otp = EmailOTP.objects.get(email=email)
             if not email_otp.is_verified:
                 return JsonResponse({"success": False, "message": "Email verification required. Please verify your email with OTP first."}, status=400)
         except EmailOTP.DoesNotExist:
             return JsonResponse({"success": False, "message": "Email verification required. Please verify your email with OTP first."}, status=400)
-        
-        # Validate password confirmation
-        if password != confirm_password:
-            return JsonResponse({"success": False, "message": "Passwords do not match"}, status=400)
-        
-        # Check if username already exists
+
+        # -----------------------
+        # USERNAME VALIDATION
+        # -----------------------
+        if len(username) < 3:
+            return JsonResponse({"success": False, "message": "Username must be at least 3 characters long"}, status=400)
+
         if User.objects.filter(username__iexact=username).exists():
             return JsonResponse({"success": False, "message": "Username already exists"}, status=400)
-        
-        # Check if email already exists
-        if User.objects.filter(email__iexact=email).exists():
-            return JsonResponse({"success": False, "message": "Email already exists"}, status=400)
-        
-        # Validate password using Django's validators
-        from django.contrib.auth.password_validation import validate_password
-        try:
-            validate_password(password)
-        except ValidationError as e:
-            # Return first validation error
-            error_messages = list(e.messages)
-            return JsonResponse({"success": False, "message": error_messages[0] if error_messages else "Invalid password"}, status=400)
-        
-        # Create user with username, email, and password
+
+        # -----------------------
+        # PASSWORD VALIDATION
+        # -----------------------
+        username_lower = username.lower()
+        password_lower = password.lower()
+
+        # Must not equal username
+        if password_lower == username_lower:
+            return JsonResponse({"success": False, "message": "Password must not equal the username"}, status=400)
+
+        # Must not contain username
+        if username_lower in password_lower:
+            return JsonResponse({"success": False, "message": "Password must not contain the username"}, status=400)
+
+        # Must not contain reversed username
+        if username_lower[::-1] in password_lower:
+            return JsonResponse({"success": False, "message": "Password must not contain the reversed username"}, status=400)
+
+        # Length
+        if len(password) < 8:
+            return JsonResponse({"success": False, "message": "Password must be at least 8 characters long"}, status=400)
+
+        # Uppercase
+        if not re.search(r"[A-Z]", password):
+            return JsonResponse({"success": False, "message": "Password must contain at least one uppercase letter"}, status=400)
+
+        # Lowercase
+        if not re.search(r"[a-z]", password):
+            return JsonResponse({"success": False, "message": "Password must contain at least one lowercase letter"}, status=400)
+
+        # Number
+        if not re.search(r"\d", password):
+            return JsonResponse({"success": False, "message": "Password must contain at least one number"}, status=400)
+
+        # Special character
+        if not re.search(r"[!@#$%^&*()\-_=+\[\]{};:'\",.<>/?\\|`~]", password):
+            return JsonResponse({"success": False, "message": "Password must contain at least one special character"}, status=400)
+
+        # -----------------------
+        # CREATE USER
+        # -----------------------
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password
         )
-        
-        # Mark email as verified in allauth
+
+        # Mark email verified in allauth
         from allauth.account.models import EmailAddress
-        try:
-            email_address = EmailAddress.objects.get(user=user, email=user.email)
-            email_address.verified = True
-            email_address.primary = True
-            email_address.save()
-        except EmailAddress.DoesNotExist:
-            EmailAddress.objects.create(
-                user=user,
-                email=user.email,
-                verified=True,
-                primary=True
-            )
-        
-        # Delete OTP record
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=email,
+            defaults={"verified": True, "primary": True}
+        )
+
+        # Delete OTP after successful signup
         email_otp.delete()
-        
-        # Login the user - specify backend for multiple backend configuration
-        # Use default ModelBackend for newly created users
+
+        # Auto-login
         login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        
+
         return JsonResponse({
             "success": True,
             "data": {"user": {"id": user.id, "username": user.username}}
         }, status=201)
-        
+
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
     except Exception as e:
@@ -706,3 +812,89 @@ def api_profile_view(request):
         })
     except Exception as e:
         return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+# -----------------------
+# UPDATE CREDENTIALS API
+# -----------------------
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_http_methods
+import re
+import json
+from django.db import transaction
+
+@require_http_methods(["POST"])
+@login_required
+def api_update_credentials_view(request):
+    try:
+        data = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
+
+    new_username = (data.get("new_username") or "").strip()
+    new_password = (data.get("new_password") or "").strip()
+
+    user = request.user
+    errors = []
+
+    # ---------- Username validation ----------
+    if new_username:
+        if len(new_username) < 3:
+            errors.append("Username must be at least 3 characters long")
+        elif User.objects.filter(username__iexact=new_username).exclude(pk=user.pk).exists():
+            errors.append("Username already exists")
+
+    # ---------- Password validation ----------
+    if new_password:
+
+        # Must not equal username
+        if new_password.lower() == (new_username or user.username).lower():
+            errors.append("Password must not equal the username")
+
+        uname = (new_username or user.username).lower()
+
+        # Must not contain username
+        if uname in new_password.lower():
+            errors.append("Password must not contain the username")
+
+        # Must not contain reversed username
+        if uname[::-1] in new_password.lower():
+            errors.append("Password must not contain the reversed username")
+
+        # Specific policies one by one (because tests expect separate messages)
+        if len(new_password) < 8:
+            errors.append("Password must be at least 8 characters long")
+
+        if not re.search(r"[A-Z]", new_password):
+            errors.append("Password must contain at least one uppercase letter")
+
+        if not re.search(r"[a-z]", new_password):
+            errors.append("Password must contain at least one lowercase letter")
+
+        if not re.search(r"\d", new_password):
+            errors.append("Password must contain at least one number")
+
+        if not re.search(r"[!@#$%^&*()\-_=+\[\]{};:'\",.<>/?\\|`~]", new_password):
+            errors.append("Password must contain at least one special character")
+
+    # ---------- Return first error ----------
+    if errors:
+        return JsonResponse({"success": False, "message": errors[0]}, status=400)
+
+    # ---------- Save changes ----------
+    try:
+        with transaction.atomic():
+            if new_username:
+                user.username = new_username
+            if new_password:
+                user.set_password(new_password)
+            user.save()
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+    # ---------- SUCCESS FORMAT required by tests ----------
+    return JsonResponse({
+        "success": True,
+        "data": {
+            "message": "Credentials updated successfully. Please log in again."
+        }
+    }, status=200)

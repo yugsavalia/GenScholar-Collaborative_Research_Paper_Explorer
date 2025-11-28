@@ -8,6 +8,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.conf import settings
 import os
+import re
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -30,10 +31,12 @@ def request_password_reset(request):
     serializer = PasswordResetRequestSerializer(data=request.data)
     
     if not serializer.is_valid():
+        # Get the first error message from email validation
+        email_errors = serializer.errors.get('email', [])
+        error_message = email_errors[0] if email_errors else "Invalid email address."
         return Response({
             "success": False,
-            "message": "Invalid email address.",
-            "errors": serializer.errors
+            "message": error_message
         }, status=status.HTTP_400_BAD_REQUEST)
     
     email = serializer.validated_data['email']
@@ -42,11 +45,10 @@ def request_password_reset(request):
     try:
         user = User.objects.get(email__iexact=email)
     except User.DoesNotExist:
-        # Return generic success message for security (don't reveal if email exists)
         return Response({
-            "success": True,
-            "message": "If an account with that email exists, a reset link has been sent."
-        }, status=status.HTTP_200_OK)
+            "success": False,
+            "message": "Email not found. Please enter a registered email address."
+        }, status=status.HTTP_400_BAD_REQUEST)
     
     # Generate reset token and uid
     uid = urlsafe_base64_encode(force_bytes(user.pk))
@@ -109,9 +111,10 @@ GenScholar Support Team"""
         # In production, you might want to log this to a proper logging system
     
     # Always return generic success message
+        # Return success message after sending reset email
     return Response({
         "success": True,
-        "message": "If an account with that email exists, a reset link has been sent."
+        "message": "Password reset link has been sent to your email."
     }, status=status.HTTP_200_OK)
 
 
@@ -152,16 +155,69 @@ def confirm_password_reset(request):
             "success": False,
             "message": "Invalid or expired reset link."
         }, status=status.HTTP_400_BAD_REQUEST)
+        # Validate new password with strict rules (matching update-credentials API)
+    username_lower = user.username.lower()
+    password_lower = new_password.lower()
+    
+    # Must not equal username
+    if password_lower == username_lower:
+        return Response({
+            "success": False,
+            "message": "Password must not equal the username"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Must not contain username
+    if username_lower in password_lower:
+        return Response({
+            "success": False,
+            "message": "Password must not contain the username"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Must not contain reversed username
+    reversed_username = username_lower[::-1]
+    if reversed_username and reversed_username in password_lower:
+        return Response({
+            "success": False,
+            "message": "Password must not contain the reversed username"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Password strength checks (in order of specificity)
+    if len(new_password) < 8:
+        return Response({
+            "success": False,
+            "message": "Password must be at least 8 characters long"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not re.search(r"[A-Z]", new_password):
+        return Response({
+            "success": False,
+            "message": "Password must contain at least one uppercase letter"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not re.search(r"[a-z]", new_password):
+        return Response({
+            "success": False,
+            "message": "Password must contain at least one lowercase letter"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not re.search(r"\d", new_password):
+        return Response({
+            "success": False,
+            "message": "Password must contain at least one number"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    if not re.search(r"[!@#$%^&*()\-_=+\[\]{};:'\",.<>/?\\|`~]", new_password):
+        return Response({
+            "success": False,
+            "message": "Password must contain at least one special character"
+        }, status=status.HTTP_400_BAD_REQUEST)
     
     # Set new password
     user.set_password(new_password)
     user.save()
     
-    # Optionally invalidate all sessions (Django does this automatically on password change)
-    # For additional security, you could add session invalidation here
-    
     return Response({
         "success": True,
-        "message": "Password has been reset successfully."
+        "message": "Password reset successful."
     }, status=status.HTTP_200_OK)
 

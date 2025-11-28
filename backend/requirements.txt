@@ -10,11 +10,6 @@ redis==5.0.1
 django-background-tasks==1.2.8
 django-allauth==0.57.0
 psycopg2-binary>=2.9
-gunicorn
-uvicorn
-whitenoise[brotli]
-dj-database-url
-django-anymail[mailgun] 
 
 # Testing dependencies
 coverage==7.3.2
