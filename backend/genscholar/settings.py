@@ -291,14 +291,28 @@ CORS_ALLOWED_ORIGINS = [
 # Add production frontend URL from environment variable
 FRONTEND_URL = os.getenv('FRONTEND_URL', '')
 if FRONTEND_URL:
-    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+    # Remove trailing slash if present
+    frontend_url_clean = FRONTEND_URL.rstrip('/')
+    CORS_ALLOWED_ORIGINS.append(frontend_url_clean)
+
+# Allow Netlify deployments if FRONTEND_URL is not set
+# This allows requests from any *.netlify.app domain
+if not FRONTEND_URL:
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^https://.*\.netlify\.app$",
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF configuration for frontend API integration
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 if FRONTEND_URL:
-    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
+    # Remove trailing slash if present
+    frontend_url_clean = FRONTEND_URL.rstrip('/')
+    CSRF_TRUSTED_ORIGINS.append(frontend_url_clean)
+# Note: CSRF_TRUSTED_ORIGINS doesn't support regex patterns.
+# If FRONTEND_URL is not set, CORS will work via CORS_ALLOWED_ORIGIN_REGEXES,
+# but CSRF may fail. Set FRONTEND_URL env var for proper CSRF protection.
 
 # CSRF Cookie Settings
 # httponly=False is required so JavaScript can read the CSRF token from cookies

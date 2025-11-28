@@ -44,6 +44,9 @@ export async function getCsrfToken(forceRefresh = false) {
     const response = await fetch(`${API_BASE_URL}/api/auth/csrf/`, {
       method: 'GET',
       credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+      },
     });
 
     if (!response.ok) {

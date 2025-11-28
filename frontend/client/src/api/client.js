@@ -15,7 +15,9 @@ import { getCsrfToken } from '../utils/csrf.js';
  * @returns {Promise<object>} - Response data
  */
 export async function apiRequest(method, endpoint, data = null, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Ensure endpoint starts with / and API_BASE_URL doesn't end with /
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${API_BASE_URL}${cleanEndpoint}`;
   
   // Get CSRF token for state-changing requests
   let csrfToken = null;
@@ -70,6 +72,8 @@ export async function apiRequest(method, endpoint, data = null, options = {}) {
       // If we get HTML, it's likely a 404 or error page
       const text = await response.text();
       console.error(`[API Client] Received non-JSON response (${contentType}) for ${endpoint}:`, text.substring(0, 200));
+      console.error(`[API Client] Full URL: ${url}`);
+      console.error(`[API Client] Response status: ${response.status}`);
       
       let errorMessage = `Server returned ${response.status} ${response.statusText}`;
       if (response.status === 404) {
@@ -78,6 +82,8 @@ export async function apiRequest(method, endpoint, data = null, options = {}) {
         errorMessage = `Server error: ${response.statusText}. Check backend server logs.`;
       } else if (response.status === 0) {
         errorMessage = `Cannot connect to backend server at ${API_BASE_URL}. Is the server running?`;
+      } else if (response.status === 403) {
+        errorMessage = `Access forbidden. This may be a CORS or CSRF issue. Check that ${window.location.origin} is allowed by the backend CORS settings.`;
       }
       
       const error = new Error(errorMessage);
@@ -115,6 +121,11 @@ export async function apiRequest(method, endpoint, data = null, options = {}) {
     }
     
     // Network error or JSON parsing error
+    // Check if it's a CORS error
+    if (error.message.includes('CORS') || error.message.includes('Failed to fetch') || error.name === 'TypeError') {
+      throw new Error(`CORS error: Cannot connect to backend at ${API_BASE_URL}. Make sure the backend allows requests from ${window.location.origin}`);
+    }
+    
     throw new Error(`API request failed: ${error.message}`);
   }
 }
