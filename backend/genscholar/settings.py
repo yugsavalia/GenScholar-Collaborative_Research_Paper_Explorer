@@ -296,3 +296,8 @@ CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens (default)
+
+try:
+    from .railway import *  # noqa
+except ImportError:
+    pass  
