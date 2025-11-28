@@ -29,6 +29,13 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-f0-e%8**&h%51ef5k+!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,testserver').split(',')
+# Add Railway domain if provided
+RAILWAY_PUBLIC_DOMAIN = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
+if RAILWAY_PUBLIC_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
+    # Also add without protocol if it includes it
+    if '://' in RAILWAY_PUBLIC_DOMAIN:
+        ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN.split('://')[1].split('/')[0])
 
 
 # Application definition
@@ -281,10 +288,17 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite dev server default port
 ]
 
+# Add production frontend URL from environment variable
+FRONTEND_URL = os.getenv('FRONTEND_URL', '')
+if FRONTEND_URL:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF configuration for frontend API integration
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+if FRONTEND_URL:
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_URL)
 
 # CSRF Cookie Settings
 # httponly=False is required so JavaScript can read the CSRF token from cookies
