@@ -1,0 +1,9 @@
+node_modules/
+# Python cache
+__pycache__/
+*.pyc
+
+# Django migrations (optional but common)
+*/migrations/
+*/migrations/*.py
+!*/migrations/__init__.py

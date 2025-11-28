@@ -302,14 +302,15 @@ if FRONTEND_URL:
 
 # CSRF Cookie Settings
 # httponly=False is required so JavaScript can read the CSRF token from cookies
-# This is safe because:
-# 1. The token is only used for CSRF protection, not authentication
-# 2. SameSite=Lax prevents cross-site cookie access
-# 3. The token must match between cookie and header, preventing XSS token theft
-# 4. Modern browsers' SameSite cookie protection mitigates CSRF attacks
+# Cross-site cookies for production (HTTPS required)
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens (default)
+
+# Session Cookie Settings (for cross-origin authentication)
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
 
 try:
     from .railway import *  # noqa

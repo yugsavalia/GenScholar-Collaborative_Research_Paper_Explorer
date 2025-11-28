@@ -349,7 +349,13 @@ def api_csrf_view(request):
     token = get_token(request)
     response = JsonResponse({"success": True, "data": {"csrf_token": token}})
     # Cookie is already set by @ensure_csrf_cookie, but we can also set it explicitly
-    response.set_cookie('csrftoken', token, samesite='Lax', httponly=False)
+    response.set_cookie(
+        'csrftoken',
+        token,
+        secure=True,
+        samesite='None',
+        httponly=False
+    )
     return response
 
 
