@@ -3,7 +3,7 @@
  * Functions for managing threaded discussions on PDF text selections
  */
 
-import { API_BASE_URL } from './config.js';
+import { buildApiUrl } from './config.js';
 import { getCsrfToken } from '../utils/csrf.js';
 
 /**
@@ -14,7 +14,7 @@ import { getCsrfToken } from '../utils/csrf.js';
  */
 export async function getThreads(workspaceId, pdfId) {
   const response = await fetch(
-    `${API_BASE_URL}/api/threads/?workspace_id=${workspaceId}&pdf_id=${pdfId}`,
+    `${buildApiUrl('/api/threads/')}?workspace_id=${workspaceId}&pdf_id=${pdfId}`,
     {
       method: 'GET',
       credentials: 'include',
@@ -42,7 +42,7 @@ export async function getThreads(workspaceId, pdfId) {
 export async function createThread(workspaceId, pdfId, threadData) {
   const csrfToken = await getCsrfToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/threads/`, {
+  const response = await fetch(buildApiUrl('/api/threads/'), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -71,7 +71,7 @@ export async function createThread(workspaceId, pdfId, threadData) {
  * @returns {Promise<object>} - Thread object with messages
  */
 export async function getThread(threadId) {
-  const response = await fetch(`${API_BASE_URL}/api/threads/${threadId}/`, {
+  const response = await fetch(buildApiUrl(`/api/threads/${threadId}/`), {
     method: 'GET',
     credentials: 'include',
     headers: {
@@ -95,7 +95,7 @@ export async function getThread(threadId) {
 export async function addMessage(threadId, content) {
   const csrfToken = await getCsrfToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/threads/${threadId}/messages/`, {
+  const response = await fetch(buildApiUrl(`/api/threads/${threadId}/messages/`), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -121,7 +121,7 @@ export async function addMessage(threadId, content) {
 export async function deleteThread(threadId) {
   const csrfToken = await getCsrfToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/threads/${threadId}/`, {
+  const response = await fetch(buildApiUrl(`/api/threads/${threadId}/`), {
     method: 'DELETE',
     credentials: 'include',
     headers: {

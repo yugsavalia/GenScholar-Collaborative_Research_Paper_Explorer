@@ -3,7 +3,7 @@
  * Fetch wrapper for making API requests to the Django backend
  */
 
-import { API_BASE_URL } from './config.js';
+import { API_BASE_URL, buildApiUrl } from './config.js';
 import { getCsrfToken } from '../utils/csrf.js';
 
 /**
@@ -15,7 +15,7 @@ import { getCsrfToken } from '../utils/csrf.js';
  * @returns {Promise<object>} - Response data
  */
 export async function apiRequest(method, endpoint, data = null, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = buildApiUrl(endpoint);
   
   // Get CSRF token for state-changing requests
   let csrfToken = null;

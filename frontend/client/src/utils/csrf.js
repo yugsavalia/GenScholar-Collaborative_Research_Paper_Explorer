@@ -40,8 +40,8 @@ export async function getCsrfToken(forceRefresh = false) {
 
   // If not in cookie, fetch from server
   try {
-    const { API_BASE_URL } = await import('../api/config.js');
-    const response = await fetch(`${API_BASE_URL}/api/auth/csrf/`, {
+    const { buildApiUrl } = await import('../api/config.js');
+    const response = await fetch(buildApiUrl('/api/auth/csrf/'), {
       method: 'GET',
       credentials: 'include',
     });

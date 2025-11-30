@@ -3,7 +3,7 @@
  * Functions for PDF management with the Django backend
  */
 
-import { API_BASE_URL } from './config.js';
+import { buildApiUrl } from './config.js';
 
 /**
  * Get list of PDFs for a workspace
@@ -11,7 +11,7 @@ import { API_BASE_URL } from './config.js';
  * @returns {Promise<Array>} - Array of PDF objects
  */
 export async function getPdfs(workspaceId) {
-  const url = `${API_BASE_URL}/api/pdfs/?workspace=${workspaceId}`;
+  const url = `${buildApiUrl('/api/pdfs/')}?workspace=${workspaceId}`;
   console.log('[API] Fetching PDFs from:', url);
   
   const response = await fetch(url, {
@@ -55,7 +55,7 @@ export async function uploadPdf(workspaceId, file, title) {
   // Get CSRF token
   const csrfToken = await getCsrfToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/pdfs/`, {
+    const response = await fetch(buildApiUrl('/api/pdfs/'), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -93,7 +93,7 @@ export async function uploadPdf(workspaceId, file, title) {
  */
 export async function getPdfUrl(pdfId) {
   // Try /file/ endpoint first (alias), fallback to /download/
-  const response = await fetch(`${API_BASE_URL}/api/pdfs/${pdfId}/file/`, {
+    const response = await fetch(buildApiUrl(`/api/pdfs/${pdfId}/file/`), {
     method: 'GET',
     credentials: 'include',
   });
@@ -117,7 +117,7 @@ export async function deletePdf(pdfId) {
   // Get CSRF token
   const csrfToken = await getCsrfToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/pdfs/${pdfId}/`, {
+    const response = await fetch(buildApiUrl(`/api/pdfs/${pdfId}/`), {
     method: 'DELETE',
     credentials: 'include',
     headers: {

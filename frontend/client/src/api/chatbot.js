@@ -3,7 +3,7 @@
  * Functions for interacting with the AI chatbot
  */
 
-import { API_BASE_URL } from './config.js';
+import { buildApiUrl } from './config.js';
 import { getCsrfToken } from '../utils/csrf.js';
 
 /**
@@ -20,7 +20,7 @@ export async function askChatbot(workspaceId, question) {
   const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
   
   try {
-    const response = await fetch(`${API_BASE_URL}/api/chatbot/ask/`, {
+    const response = await fetch(buildApiUrl('/api/chatbot/ask/'), {
       method: 'POST',
       credentials: 'include',
       signal: controller.signal, // Add abort signal
