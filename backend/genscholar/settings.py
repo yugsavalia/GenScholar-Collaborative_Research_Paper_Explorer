@@ -278,7 +278,8 @@ REST_FRAMEWORK = {
 }
 
 # CORS configuration for frontend API integration
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,https://genscholar.netlify.app').split(',')
+cors_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '').strip()
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in (cors_origins_env if cors_origins_env else 'http://localhost:5173,https://genscholar.netlify.app').split(',') if origin.strip()]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
@@ -292,7 +293,8 @@ CORS_ALLOW_METHODS = [
 ]
 
 # CSRF configuration for frontend API integration
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,https://genscholar.netlify.app').split(',')
+csrf_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', '').strip()
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in (csrf_origins_env if csrf_origins_env else 'http://localhost:5173,https://genscholar.netlify.app').split(',') if origin.strip()]
 
 # CSRF Cookie Settings
 # httponly=False is required so JavaScript can read the CSRF token from cookies

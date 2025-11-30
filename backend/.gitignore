@@ -1,0 +1,25 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django artifacts
+db.sqlite3
+media/
+static/
+staticfiles/
+*.mo
+*.pot
+
+# Environment & credentials
+.env
+secret.key
+
+# Virtual env (if created inside backend)
+venv/
+ENV/
+
+# Background task files
+tasks.sqlite
+background_tasks/
