@@ -657,19 +657,16 @@ def api_request_email_verification_view(request):
         message = f"""Your 6-digit verification code is: {otp}
 This code expires in 10 minutes."""
         
-        # Use Django's email backend directly with explicit connection and timeout
-        # CRITICAL: Add timeout to prevent Gunicorn worker timeout (30s default)
-        from django.core.mail import get_connection
+        # Use thread-based timeout to prevent Gunicorn worker timeout
+        # This ensures the email operation cannot block the worker indefinitely
+        import concurrent.futures
         import socket
+        from django.core.mail import get_connection
         
-        # Set socket default timeout to prevent indefinite blocking
-        # Use shorter timeout (10s) to fail fast and prevent worker hangs
-        original_timeout = socket.getdefaulttimeout()
         email_timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
-        # Cap timeout at 15 seconds to prevent worker timeout issues
-        if email_timeout > 15:
-            email_timeout = 15
-        socket.setdefaulttimeout(email_timeout)
+        # Cap timeout at 8 seconds to leave buffer before Gunicorn's 30s timeout
+        if email_timeout > 8:
+            email_timeout = 8
         
         # Debug: Log email configuration (without sensitive data)
         print(f"[EMAIL DEBUG] Attempting to send OTP email to {email}")
@@ -681,47 +678,77 @@ This code expires in 10 minutes."""
         print(f"[EMAIL DEBUG] EMAIL_USE_TLS: {settings.EMAIL_USE_TLS}")
         print(f"[EMAIL DEBUG] EMAIL_TIMEOUT: {email_timeout}s")
         
-        try:
-            connection = get_connection(
-                backend=settings.EMAIL_BACKEND,
-                host=settings.EMAIL_HOST,
-                port=settings.EMAIL_PORT,
-                username=settings.EMAIL_HOST_USER,
-                password=settings.EMAIL_HOST_PASSWORD,
-                use_tls=settings.EMAIL_USE_TLS,
-                timeout=email_timeout,  # Explicit timeout parameter
-            )
-            
-            print(f"[EMAIL DEBUG] Connection object created, attempting to send...")
+        def send_email_with_timeout():
+            """Send email in a separate function that can be timed out."""
+            # Set socket timeout for this thread
+            original_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(email_timeout)
             
             try:
-                result = send_mail(
-                    subject,
-                    message,
-                    from_email,
-                    [email],
-                    fail_silently=False,
-                    connection=connection,
+                connection = get_connection(
+                    backend=settings.EMAIL_BACKEND,
+                    host=settings.EMAIL_HOST,
+                    port=settings.EMAIL_PORT,
+                    username=settings.EMAIL_HOST_USER,
+                    password=settings.EMAIL_HOST_PASSWORD,
+                    use_tls=settings.EMAIL_USE_TLS,
+                    timeout=email_timeout,
                 )
-                print(f"✓ OTP email sent successfully to {email} (result: {result})")
-                return JsonResponse({
-                    "success": True,
-                    "data": {"message": f"OTP sent to {email}"}
-                })
-            finally:
-                # Always close connection to free resources
+                
+                print(f"[EMAIL DEBUG] Connection object created, attempting to send...")
+                
                 try:
-                    connection.close()
-                    print(f"[EMAIL DEBUG] Connection closed")
-                except Exception as close_err:
-                    print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
-        except socket.timeout:
-            error_msg = "Email server connection timed out"
-            print(f"✗ ERROR: {error_msg} (timeout: {email_timeout}s)")
-            print(f"✗ ERROR: Could not connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT} within {email_timeout} seconds")
+                    result = send_mail(
+                        subject,
+                        message,
+                        from_email,
+                        [email],
+                        fail_silently=False,
+                        connection=connection,
+                    )
+                    print(f"✓ OTP email sent successfully to {email} (result: {result})")
+                    return {"success": True, "result": result}
+                finally:
+                    # Always close connection to free resources
+                    try:
+                        connection.close()
+                        print(f"[EMAIL DEBUG] Connection closed")
+                    except Exception as close_err:
+                        print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
+            except socket.timeout:
+                raise TimeoutError(f"SMTP connection timed out after {email_timeout} seconds")
+            except Exception as e:
+                raise e
+            finally:
+                socket.setdefaulttimeout(original_timeout)
+        
+        # Execute email sending in thread pool with timeout
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(send_email_with_timeout)
+                try:
+                    email_result = future.result(timeout=email_timeout + 2)  # Add 2s buffer
+                    if email_result.get("success"):
+                        return JsonResponse({
+                            "success": True,
+                            "data": {"message": f"OTP sent to {email}"}
+                        })
+                    else:
+                        raise Exception("Email sending returned unsuccessful result")
+                except concurrent.futures.TimeoutError:
+                    error_msg = f"Email operation timed out after {email_timeout + 2} seconds"
+                    print(f"✗ ERROR: {error_msg}")
+                    print(f"✗ ERROR: Could not complete SMTP operation to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                    return JsonResponse({
+                        "success": False,
+                        "message": f"Email operation timed out. The SMTP server may be slow or unreachable. Please try again or contact support."
+                    }, status=500)
+        except TimeoutError as e:
+            error_msg = str(e)
+            print(f"✗ ERROR: {error_msg}")
             return JsonResponse({
                 "success": False,
-                "message": f"Email server connection timed out after {email_timeout} seconds. This usually means: 1) SMTP server is unreachable from Railway, 2) Incorrect SMTP credentials, or 3) Network/firewall blocking. Check Railway logs for details."
+                "message": f"Email server connection timed out. Please check your SMTP settings or try again later."
             }, status=500)
         except Exception as e:
             error_msg = str(e)
@@ -749,9 +776,6 @@ This code expires in 10 minutes."""
                     "success": False,
                     "message": f"Failed to send OTP email: {error_msg[:150]}"
                 }, status=500)
-        finally:
-            # Restore original socket timeout
-            socket.setdefaulttimeout(original_timeout)
         
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)
