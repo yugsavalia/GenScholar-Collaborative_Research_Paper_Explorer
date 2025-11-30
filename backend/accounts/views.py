@@ -138,13 +138,7 @@ def request_email_verification(request):
         # Determine from_email
         from_email = settings.DEFAULT_FROM_EMAIL
         if not from_email or '@localhost' in from_email or from_email == 'no-reply@localhost':
-            email_host_user = os.getenv('EMAIL_HOST_USER', '')
-            if email_host_user and '@gmail.com' in email_host_user:
-                from_email = email_host_user
-            elif settings.EMAIL_HOST == 'smtp.gmail.com' and email_host_user and '@' in email_host_user:
-                from_email = email_host_user
-            else:
-                from_email = 'noreply@genscholar.com'
+            from_email = settings.DEFAULT_FROM_EMAIL
         
         # Send verification email
         subject = "Verify your email for GenScholar"
@@ -214,9 +208,9 @@ GenScholar Team"""
             traceback.print_exc()
             # Show error to user but don't reveal sensitive details
             if "authentication" in error_msg.lower() or "535" in error_msg or "534" in error_msg or "535-5.7.8" in error_msg:
-                messages.error(request, 'Email authentication failed. Please verify your Gmail app password is correct in .env file. Make sure you\'re using an App Password, not your regular Gmail password.')
+                messages.error(request, 'Email authentication failed. Please verify your SMTP credentials are correct.')
             elif "connection" in error_msg.lower() or "timeout" in error_msg.lower() or "refused" in error_msg.lower():
-                messages.error(request, 'Could not connect to email server. Please check your internet connection and that Gmail SMTP is accessible.')
+                messages.error(request, 'Could not connect to email server. Please check your internet connection and that SMTP is accessible.')
             elif "ssl" in error_msg.lower() or "tls" in error_msg.lower():
                 messages.error(request, 'SSL/TLS connection error. Please check EMAIL_USE_TLS setting.')
             else:
@@ -631,13 +625,7 @@ def api_request_email_verification_view(request):
         # Determine from_email
         from_email = settings.DEFAULT_FROM_EMAIL
         if not from_email or '@localhost' in from_email or from_email == 'no-reply@localhost':
-            email_host_user = os.getenv('EMAIL_HOST_USER', '')
-            if email_host_user and '@gmail.com' in email_host_user:
-                from_email = email_host_user
-            elif settings.EMAIL_HOST == 'smtp.gmail.com' and email_host_user and '@' in email_host_user:
-                from_email = email_host_user
-            else:
-                from_email = 'noreply@genscholar.com'
+            from_email = settings.DEFAULT_FROM_EMAIL
         
         # Send OTP email
         subject = "Your GenScholar Verification Code"
@@ -678,12 +666,12 @@ This code expires in 10 minutes."""
             if "authentication" in error_msg.lower() or "535" in error_msg or "534" in error_msg or "535-5.7.8" in error_msg:
                 return JsonResponse({
                     "success": False,
-                    "message": "Email authentication failed. Please verify your Gmail app password is correct in .env file. Make sure you're using an App Password, not your regular Gmail password."
+                    "message": "Email authentication failed. Please verify your SMTP credentials are correct."
                 }, status=500)
             elif "connection" in error_msg.lower() or "timeout" in error_msg.lower() or "refused" in error_msg.lower():
                 return JsonResponse({
                     "success": False,
-                    "message": "Could not connect to email server. Please check your internet connection and that Gmail SMTP is accessible."
+                    "message": "Could not connect to email server. Please check your internet connection and that SMTP is accessible."
                 }, status=500)
             else:
                 return JsonResponse({

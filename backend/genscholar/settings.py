@@ -352,19 +352,18 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # Email configuration (read from environment variables)
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
 
-# Set DEFAULT_FROM_EMAIL - use Gmail address if Gmail is configured, otherwise use env or fallback
+# Set DEFAULT_FROM_EMAIL - use env or fallback
 default_from_env = os.getenv('DEFAULT_FROM_EMAIL', '')
 if default_from_env and '@localhost' not in default_from_env:
     DEFAULT_FROM_EMAIL = default_from_env
-elif EMAIL_HOST == 'smtp.gmail.com' and EMAIL_HOST_USER and '@gmail.com' in EMAIL_HOST_USER:
-    DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 elif EMAIL_HOST_USER and '@' in EMAIL_HOST_USER and '@localhost' not in EMAIL_HOST_USER:
     DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 else:

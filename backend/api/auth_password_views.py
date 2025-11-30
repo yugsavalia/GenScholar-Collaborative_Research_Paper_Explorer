@@ -76,19 +76,8 @@ GenScholar Support Team"""
     # Send email
     # Determine valid from_email address
     from_email = settings.DEFAULT_FROM_EMAIL
-    
-    # If DEFAULT_FROM_EMAIL is invalid, try to get a valid email from environment
     if not from_email or '@localhost' in from_email or from_email == 'no-reply@localhost':
-        # Try to get Gmail address from environment (check for gmail.com in EMAIL_HOST_USER)
-        email_host_user = os.getenv('EMAIL_HOST_USER', '')
-        # Look for Gmail address in env (might be set as genscholar.help@gmail.com)
-        if email_host_user and '@gmail.com' in email_host_user:
-            from_email = email_host_user
-        elif settings.EMAIL_HOST == 'smtp.gmail.com' and email_host_user and '@' in email_host_user:
-            from_email = email_host_user
-        else:
-            # Fallback - use a valid email format
-            from_email = 'genscholar.help@gmail.com'
+        from_email = settings.DEFAULT_FROM_EMAIL
     
     try:
         send_mail(
