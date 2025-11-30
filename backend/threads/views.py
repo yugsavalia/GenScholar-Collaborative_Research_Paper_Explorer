@@ -60,6 +60,18 @@ class ThreadViewSet(viewsets.ModelViewSet):
         ).exists():
             raise PermissionDenied("You must be a member of this workspace to access threads.")
     
+    def check_researcher_role(self, workspace_id):
+        """Check if user is a researcher (not reviewer) in the workspace."""
+        try:
+            member = WorkspaceMember.objects.get(
+                workspace_id=workspace_id,
+                user=self.request.user
+            )
+            if member.role != WorkspaceMember.Role.RESEARCHER:
+                raise PermissionDenied("Only researchers can perform this action.")
+        except WorkspaceMember.DoesNotExist:
+            raise PermissionDenied("You must be a member of this workspace to access threads.")
+    
     def list(self, request, *args, **kwargs):
         """List threads for a workspace and PDF."""
         workspace_id = request.query_params.get('workspace_id')
@@ -95,8 +107,8 @@ class ThreadViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check workspace membership
-        self.check_workspace_membership(workspace_id)
+        # Check workspace membership and researcher role
+        self.check_researcher_role(workspace_id)
         
         # Verify PDF belongs to workspace
         try:
@@ -144,8 +156,8 @@ class ThreadViewSet(viewsets.ModelViewSet):
         """Add a message to a thread."""
         thread = self.get_object()
         
-        # Check workspace membership
-        self.check_workspace_membership(thread.workspace_id)
+        # Check workspace membership and researcher role
+        self.check_researcher_role(thread.workspace_id)
         
         serializer = CreateMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

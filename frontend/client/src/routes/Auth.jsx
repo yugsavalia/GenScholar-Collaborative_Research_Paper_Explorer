@@ -266,6 +266,7 @@ export default function Auth() {
                         placeholder="Enter your password"
                         error={touched.password && errors.password}
                         data-testid="input-password"
+                        maxLength={15}
                       />
                     )}
                   </Field>
@@ -414,6 +415,7 @@ export default function Auth() {
                         placeholder="Enter your username"
                         error={touched.username && errors.username}
                         data-testid="input-username"
+                        maxLength={15}
                       />
                     )}
                   </Field>
@@ -441,6 +443,7 @@ export default function Auth() {
                         placeholder="Enter your password"
                         error={touched.password && errors.password}
                         data-testid="input-password"
+                        maxLength={15}
                       />
                     )}
                   </Field>

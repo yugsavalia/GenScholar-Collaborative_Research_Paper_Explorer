@@ -14,7 +14,8 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv()
+if os.getenv("RAILWAY_GIT_COMMIT_SHA") is None:
+    load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,11 +30,6 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-f0-e%8**&h%51ef5k+!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,testserver').split(',')
-# Hard-coded Railway backend domain
-ALLOWED_HOSTS.extend([
-    "genscholar-production.up.railway.app",
-    "https://genscholar-production.up.railway.app",
-])
 
 
 # Application definition
@@ -282,10 +278,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS configuration for frontend API integration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server default port
-    "https://genscholar.netlify.app",
-]
+CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,https://genscholar.netlify.app').split(',')
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
@@ -299,10 +292,7 @@ CORS_ALLOW_METHODS = [
 ]
 
 # CSRF configuration for frontend API integration
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "https://genscholar.netlify.app",
-]
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', 'http://localhost:5173,https://genscholar.netlify.app').split(',')
 
 # CSRF Cookie Settings
 # httponly=False is required so JavaScript can read the CSRF token from cookies

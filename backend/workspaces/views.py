@@ -263,6 +263,9 @@ def api_workspaces_view(request):
                 error_message = e.messages[0] if hasattr(e, 'messages') and e.messages else str(e)
                 return JsonResponse({"success": False, "message": error_message}, status=400)
             
+            if Workspace.objects.filter(members__user=request.user, name__iexact=name).exists():
+                return JsonResponse({"success": False, "error": "Workspace with this name already exists."}, status=400)
+            
             workspace = Workspace.objects.create(name=name, created_by=request.user)
             WorkspaceMember.objects.create(
                 workspace=workspace,

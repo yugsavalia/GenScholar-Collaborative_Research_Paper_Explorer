@@ -19,16 +19,22 @@ export default function Dashboard() {
   } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [createError, setCreateError] = useState('');
 
-
-  const handleCreateWorkspace = async (values, { setSubmitting, resetForm }) => {
+  const handleCreateWorkspace = async (values, { setSubmitting, resetForm, setFieldError }) => {
+    setCreateError('');
     try {
       await createWorkspace(values.name, values.description);
       resetForm();
+      setCreateError('');
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error creating workspace:', error);
-      // Error is logged, but form stays open so user can retry
+      const errorMessage = error.message || error.data?.error || error.data?.message || 'Failed to create workspace';
+      setCreateError(errorMessage);
+      if (errorMessage.includes('already exists')) {
+        setFieldError('name', errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +73,10 @@ export default function Dashboard() {
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setCreateError('');
+        }}
         title="Create New Workspace"
       >
         <Formik
@@ -77,6 +86,11 @@ export default function Dashboard() {
         >
           {({ errors, touched, isSubmitting }) => (
             <Form>
+              {createError && (
+                <div className="mb-4 p-3 rounded-md" style={{ background: '#EF5350', color: '#fff' }}>
+                  <p className="text-sm">{createError}</p>
+                </div>
+              )}
               <Field name="name">
                 {({ field, form }) => (
                   <Input

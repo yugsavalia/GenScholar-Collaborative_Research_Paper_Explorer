@@ -32,7 +32,7 @@ export default function MessageBubble({ username, content, timestamp, isOwnMessa
       )}
       
       {/* Message content with highlighted mentions */}
-      <p className="text-sm">{renderedContent}</p>
+      <p className="text-sm" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{renderedContent}</p>
       
       {/* Timestamp at the bottom */}
       {timestamp && (

@@ -105,7 +105,7 @@ export default function ChatbotPanel({ workspaceId }) {
                 : { background: 'var(--hover-bg)', color: 'var(--text-color)' }
               }
             >
-              <p className="text-sm">{renderMessageWithMentions(msg.content)}</p>
+              <p className="text-sm" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{renderMessageWithMentions(msg.content)}</p>
             </div>
           </div>
         ))}

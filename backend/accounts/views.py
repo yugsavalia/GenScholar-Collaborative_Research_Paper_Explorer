@@ -378,6 +378,9 @@ def api_login_view(request):
         if not identifier or not password:
             return JsonResponse({"success": False, "message": "Email/username and password are required"}, status=400)
         
+        if len(password) > 15:
+            return JsonResponse({"success": False, "message": "Password must be at most 15 characters long"}, status=400)
+        
         # authenticate() will try all backends, including our UsernameOrEmailBackend
         # Pass identifier as username parameter - our backend will handle username OR email
         user = authenticate(request, username=identifier, password=password)
@@ -459,6 +462,9 @@ def api_signup_view(request):
         if len(username) < 3:
             return JsonResponse({"success": False, "message": "Username must be at least 3 characters long"}, status=400)
 
+        if len(username) > 15:
+            return JsonResponse({"success": False, "message": "Username must be at most 15 characters long"}, status=400)
+
         if User.objects.filter(username__iexact=username).exists():
             return JsonResponse({"success": False, "message": "Username already exists"}, status=400)
 
@@ -483,6 +489,9 @@ def api_signup_view(request):
         # Length
         if len(password) < 8:
             return JsonResponse({"success": False, "message": "Password must be at least 8 characters long"}, status=400)
+
+        if len(password) > 15:
+            return JsonResponse({"success": False, "message": "Password must be at most 15 characters long"}, status=400)
 
         # Uppercase
         if not re.search(r"[A-Z]", password):

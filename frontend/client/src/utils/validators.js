@@ -5,13 +5,14 @@ export const loginSchema = Yup.object({
     .required('Email or username is required'),
   password: Yup.string()
     .min(6, 'Password must be at least 6 characters')
+    .max(15, 'Password must be at most 15 characters')
     .required('Password is required')
 });
 
 export const createAccountSchema = Yup.object({
   username: Yup.string()
     .min(3, 'Username must be at least 3 characters')
-    .max(30, 'Username must be less than 30 characters')
+    .max(15, 'Username must be at most 15 characters')
     .matches(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores')
     .required('Username is required'),
   email: Yup.string()
@@ -23,6 +24,7 @@ export const createAccountSchema = Yup.object({
     ),
   password: Yup.string()
     .min(6, 'Password must be at least 6 characters')
+    .max(15, 'Password must be at most 15 characters')
     .required('Password is required'),
   confirm_password: Yup.string()
     .required('Please confirm your password')

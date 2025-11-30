@@ -52,6 +52,7 @@ export default function Workspace() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pdfToDelete, setPdfToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
   const pdfsRef = useRef([]); // Store PDFs in ref for cleanup
 
@@ -176,6 +177,7 @@ export default function Workspace() {
     if (!file || !workspaceId || isUploading) return;
 
     setIsUploading(true);
+    setUploadError('');
     // Reset file input so same file can be uploaded again if needed
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -193,9 +195,11 @@ export default function Workspace() {
       
       // Select the newly uploaded PDF
       setSelectedPdf(newPdf);
+      setUploadError('');
     } catch (err) {
       console.error('Failed to upload file:', err);
-      alert('Failed to upload PDF: ' + (err.message || 'Unknown error'));
+      const errorMessage = err.message || err.data?.error || 'Failed to upload PDF';
+      setUploadError(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -373,7 +377,10 @@ export default function Workspace() {
               data-testid="input-file-upload"
             />
             <Button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                fileInputRef.current?.click();
+                setUploadError('');
+              }}
               variant="primary"
               className="w-full flex items-center justify-center gap-2"
               data-testid="button-upload-pdf"
@@ -382,6 +389,11 @@ export default function Workspace() {
               <Icon name="upload" size={18} />
               {isUploading ? 'Uploading...' : 'Upload PDF'}
             </Button>
+            {uploadError && (
+              <div className="mt-2 p-2 rounded-md text-sm" style={{ background: '#EF5350', color: '#fff' }}>
+                <p>{uploadError}</p>
+              </div>
+            )}
           </div>
 
           <div className="p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>

@@ -294,7 +294,7 @@ export default function ThreadedDiscussions({ workspaceId, pdfId, selectedThread
                 {msg.sender && (
                   <p className="text-xs opacity-75 mb-1">{msg.sender.username}</p>
                 )}
-                <p className="text-sm">{renderMessageWithMentions(msg.content)}</p>
+                <p className="text-sm" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{renderMessageWithMentions(msg.content)}</p>
                 <p className="text-xs opacity-60 mt-1">
                   {new Date(msg.created_at).toLocaleString()}
                 </p>

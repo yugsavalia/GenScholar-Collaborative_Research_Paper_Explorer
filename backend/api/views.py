@@ -112,6 +112,18 @@ class PDFViewSet(viewsets.ModelViewSet):
         print(f"[PDFViewSet] Final queryset count: {final_count}")
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if file:
+            workspace_id = request.data.get('workspace')
+            if workspace_id:
+                filename = file.name
+                if PDFFile.objects.filter(workspace_id=workspace_id, title__iexact=filename).exists():
+                    from rest_framework.response import Response
+                    from rest_framework import status
+                    return Response({"error": "A PDF with this name already exists in this workspace."}, status=status.HTTP_400_BAD_REQUEST)
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         if not self.request.user.is_authenticated:
             raise PermissionDenied('Authentication required.')
