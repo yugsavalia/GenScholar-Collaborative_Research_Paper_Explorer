@@ -663,9 +663,23 @@ This code expires in 10 minutes."""
         import socket
         
         # Set socket default timeout to prevent indefinite blocking
+        # Use shorter timeout (10s) to fail fast and prevent worker hangs
         original_timeout = socket.getdefaulttimeout()
         email_timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
+        # Cap timeout at 15 seconds to prevent worker timeout issues
+        if email_timeout > 15:
+            email_timeout = 15
         socket.setdefaulttimeout(email_timeout)
+        
+        # Debug: Log email configuration (without sensitive data)
+        print(f"[EMAIL DEBUG] Attempting to send OTP email to {email}")
+        print(f"[EMAIL DEBUG] EMAIL_BACKEND: {settings.EMAIL_BACKEND}")
+        print(f"[EMAIL DEBUG] EMAIL_HOST: {settings.EMAIL_HOST}")
+        print(f"[EMAIL DEBUG] EMAIL_PORT: {settings.EMAIL_PORT}")
+        print(f"[EMAIL DEBUG] EMAIL_HOST_USER: {'SET' if settings.EMAIL_HOST_USER else 'NOT SET'}")
+        print(f"[EMAIL DEBUG] EMAIL_HOST_PASSWORD: {'SET' if settings.EMAIL_HOST_PASSWORD else 'NOT SET'}")
+        print(f"[EMAIL DEBUG] EMAIL_USE_TLS: {settings.EMAIL_USE_TLS}")
+        print(f"[EMAIL DEBUG] EMAIL_TIMEOUT: {email_timeout}s")
         
         try:
             connection = get_connection(
@@ -677,6 +691,8 @@ This code expires in 10 minutes."""
                 use_tls=settings.EMAIL_USE_TLS,
                 timeout=email_timeout,  # Explicit timeout parameter
             )
+            
+            print(f"[EMAIL DEBUG] Connection object created, attempting to send...")
             
             try:
                 result = send_mail(
@@ -696,14 +712,16 @@ This code expires in 10 minutes."""
                 # Always close connection to free resources
                 try:
                     connection.close()
-                except:
-                    pass
+                    print(f"[EMAIL DEBUG] Connection closed")
+                except Exception as close_err:
+                    print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
         except socket.timeout:
             error_msg = "Email server connection timed out"
             print(f"✗ ERROR: {error_msg} (timeout: {email_timeout}s)")
+            print(f"✗ ERROR: Could not connect to {settings.EMAIL_HOST}:{settings.EMAIL_PORT} within {email_timeout} seconds")
             return JsonResponse({
                 "success": False,
-                "message": f"Email server connection timed out after {email_timeout} seconds. Please check your SMTP settings and network connectivity."
+                "message": f"Email server connection timed out after {email_timeout} seconds. This usually means: 1) SMTP server is unreachable from Railway, 2) Incorrect SMTP credentials, or 3) Network/firewall blocking. Check Railway logs for details."
             }, status=500)
         except Exception as e:
             error_msg = str(e)
