@@ -12,6 +12,10 @@ staticfiles/
 *.mo
 *.pot
 
+# Django migrations
+*/migrations/*.py
+!*/migrations/__init__.py
+
 # Environment & credentials
 .env
 secret.key
