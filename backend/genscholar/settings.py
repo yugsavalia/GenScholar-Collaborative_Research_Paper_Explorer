@@ -30,12 +30,18 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-f0-e%8**&h%51ef5k+!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '').strip()
-default_hosts = 'localhost,127.0.0.1,0.0.0.0,testserver'
-if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_GIT_COMMIT_SHA'):
-    railway_public_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
-    if railway_public_domain:
-        default_hosts = f'{default_hosts},{railway_public_domain}'
-ALLOWED_HOSTS = [host.strip() for host in (allowed_hosts_env if allowed_hosts_env else default_hosts).split(',') if host.strip()]
+is_railway = bool(os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_GIT_COMMIT_SHA'))
+
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'testserver']
+    if is_railway:
+        railway_public_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN', '').strip()
+        if railway_public_domain:
+            ALLOWED_HOSTS.append(railway_public_domain)
+        if not DEBUG and not railway_public_domain:
+            ALLOWED_HOSTS = ['*']
 
 
 # Application definition
