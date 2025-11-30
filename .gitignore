@@ -1,9 +1,24 @@
-node_modules/
-# Python cache
-__pycache__/
-*.pyc
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
-# Django migrations (optional but common)
-*/migrations/
-*/migrations/*.py
-!*/migrations/__init__.py
+# Python virtual envs
+venv/
+.env/
+ENV/
+*.egg-info/
+
+# Node dependencies (symlinked or mistakenly installed)
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Logs
+*.log
+
+# Django / React compiled assets
+staticfiles/
