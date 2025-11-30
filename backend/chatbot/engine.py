@@ -1,234 +1,17 @@
-# import os
-# import base64
-# from functools import lru_cache
-# from django.conf import settings
-
-# # Import models from other apps
-# from pdfs.models import PDFFile
-# from workspaces.models import Workspace
-
-# # LangChain/AI Imports
-# from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain_text_splitters import RecursiveCharacterTextSplitter
-# from langchain_community.vectorstores import FAISS
-# from langchain_core.prompts import ChatPromptTemplate
-# from langchain_core.output_parsers import StrOutputParser
-# from langchain_core.documents import Document
-
-# # --- UPDATED IMPORTS ---
-# # We are now using unstructured
-# from unstructured.partition.pdf import partition_pdf
-# # Using Cohere as requested
-# from langchain_cohere import CohereEmbeddings 
-
-
-# # --- 1. LOAD MODELS (These load ONCE when Django starts) ---
-
-# # Your embedding model (Cohere)
-# try:
-#     print("Loading Embedding Model (Cohere)...")
-#     EMBEDDINGS = CohereEmbeddings(
-#         model="embed-english-v3.0",
-#         cohere_api_key=os.getenv("COHERE_API_KEY")
-#     )
-#     print("✅ Cohere Embedding Model Loaded.")
-# except Exception as e:
-#     print(f"❌ Error loading Cohere embedding model: {e}")
-#     EMBEDDINGS = None
-
-# # Your CHAT model (Gemini Flash)
-# try:
-#     print("Loading Chat LLM (gemini-flash-latest)...")
-#     LLM = ChatGoogleGenerativeAI(
-#         model="gemini-flash-latest",
-#         google_api_key=os.getenv("GOOGLE_API_KEY"),
-#         temperature=0.2,
-#     )
-#     print("✅ Google Chat LLM Loaded.")
-# except Exception as e:
-#     print(f"❌ Error loading Google Chat LLM: {e}")
-#     LLM = None
-
-# # Your Q&A Chain (Unchanged)
-# PROMPT = ChatPromptTemplate.from_template("""
-# You are a helpful research assistant. Use the provided context from one or more research papers to answer the question.
-# If the answer is not found in the context, say "I cannot find that information in the provided documents."
-
-# Context:
-# {context}
-
-# Question:
-# {question}
-# """)
-# PARSER = StrOutputParser()
-# QA_CHAIN = PROMPT | LLM | PARSER
-
-
-# # --- 2. PDF PROCESSING FUNCTION (Using unstructured) ---
-
-# def add_pdf_to_workspace_index(pdf_id):
-#     """
-#     Background task:
-#     Takes a PDFFile ID, loads its TEXT using unstructured, and adds the text 
-#     (along with filename/title) to the workspace's FAISS index.
-#     """
-#     try:
-#         doc = PDFFile.objects.get(id=pdf_id)
-#         workspace = doc.workspace
-#     except PDFFile.DoesNotExist:
-#         print(f"Task failed: PDFFile with id {pdf_id} not found.")
-#         return
-
-#     if EMBEDDINGS is None:
-#         print("Task failed: The Embedding model is not loaded.")
-#         workspace.processing_status = Workspace.ProcessingStatus.FAILED
-#         workspace.save()
-#         return
-
-#     workspace.processing_status = Workspace.ProcessingStatus.PROCESSING
-#     workspace.save()
-
-#     try:
-#         pdf_path = doc.file.path
-        
-#         # --- Get title and filename ---
-#         pdf_title = doc.title
-#         pdf_filename = os.path.basename(doc.file.name)
-#         source_info = f"Source Document Information: Filename is '{pdf_filename}'. Title is '{pdf_title}'.\n\nContent from this source follows:\n"
-        
-#         # --- THIS IS THE FIX ---
-#         # 1. Partition the PDF using unstructured (text-only strategy)
-#         print(f"[Task {doc.id}] Partitioning text from PDF: {pdf_path}...")
-#         # strategy="fast" is text-only and does not require Poppler
-#         elements = partition_pdf(filename=pdf_path, strategy="fast")
-
-#         documents_with_source = []
-#         for element in elements:
-#             # We only care about text elements
-#             if element.category == "Text":
-#                 documents_with_source.append(
-#                     Document(
-#                         page_content=f"{source_info}{element.text}",
-#                         metadata={"source": doc.file.name}
-#                     )
-#                 )
-
-#         if not documents_with_source:
-#              raise ValueError("No text could be extracted by unstructured.")
-
-#         # 2. Split all collected text
-#         print(f"[Task {doc.id}] Splitting text into chunks...")
-#         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-#         chunks = splitter.split_documents(documents_with_source)
-
-#         if not chunks:
-#             raise ValueError("Failed to create chunks from documents.")
-
-#         # 3. Define the *workspace's* index path (Unchanged)
-#         if not workspace.index_path:
-#             index_name = f"workspace_index_{workspace.id}"
-#             index_save_path = os.path.join(settings.MEDIA_ROOT, 'vector_indexes', index_name)
-#             workspace.index_path = index_save_path
-#             os.makedirs(index_save_path, exist_ok=True)
-#         else:
-#             index_save_path = workspace.index_path
-
-#         # 4. Load existing index or create new one (Unchanged)
-#         if os.path.exists(os.path.join(index_save_path, "index.faiss")):
-#             print(f"[Task {doc.id}] Loading existing index from: {index_save_path}")
-#             vectorstore = FAISS.load_local(
-#                 index_save_path, 
-#                 EMBEDDINGS, 
-#                 allow_dangerous_deserialization=True
-#             )
-#             print(f"[Task {doc.id}] Adding {len(chunks)} new chunks to index...")
-#             vectorstore.add_documents(chunks)
-#         else:
-#             print(f"[Task {doc.id}] Creating new index at: {index_save_path}")
-#             vectorstore = FAISS.from_documents(chunks, EMBEDDINGS)
-
-#         # 5. Save the (new or merged) index back to disk (Unchanged)
-#         vectorstore.save_local(index_save_path)
-
-#         # 6. Update database models (Unchanged)
-#         doc.is_indexed = True
-#         doc.save()
-#         workspace.processing_status = Workspace.ProcessingStatus.READY
-#         workspace.save()
-        
-#         print(f"[Task {doc.id}] ✅ Processing complete. Workspace {workspace.id} is READY.")
-
-#     except Exception as e:
-#         print(f"[Task {doc.id}] ❌ Processing failed: {e}")
-#         workspace.processing_status = Workspace.ProcessingStatus.FAILED
-#         workspace.save()
-
-
-# # --- 3. CHATBOT QUERY FUNCTIONS (This section is 100% UNCHANGED) ---
-# # (get_cached_vector_store and get_chatbot_response are the same as before)
-
-# @lru_cache(maxsize=10)
-# def get_cached_vector_store(index_path):
-#     if not os.path.exists(index_path):
-#         raise FileNotFoundError("Index path does not exist.")
-#     print(f"Loading index from disk: {index_path}")
-#     return FAISS.load_local(
-#         index_path, 
-#         EMBEDDINGS, 
-#         allow_dangerous_deserialization=True
-#     )
-
-# def get_chatbot_response(question, workspace_id):
-#     try:
-#         workspace = Workspace.objects.get(id=workspace_id)
-#     except Workspace.DoesNotExist:
-#         return "Error: This workspace does not exist."
-
-#     if workspace.processing_status == Workspace.ProcessingStatus.NONE:
-#         return "No documents have been processed for this workspace yet."
-#     if workspace.processing_status == Workspace.ProcessingStatus.PROCESSING:
-#         return "The chatbot is currently processing new documents. Please wait a moment and try again."
-#     if workspace.processing_status == Workspace.ProcessingStatus.FAILED:
-#         return "Processing failed for one or more documents. The bot may have incomplete knowledge."
-#     if not workspace.index_path:
-#         return "Error: This workspace is ready but its index path is missing."
-
-#     try:
-#         vectorstore = get_cached_vector_store(workspace.index_path)
-#         relevant_docs = vectorstore.similarity_search(question, k=5)
-        
-#         if not relevant_docs:
-#             return "I could not find any relevant information about that in the workspace documents."
-
-#         context = "\n\n".join([doc.page_content for doc in relevant_docs])
-
-#         if not QA_CHAIN:
-#             return "Error: The chatbot LLM is not initialized."
-            
-#         answer = QA_CHAIN.invoke({"context": context, "question": question})
-#         return answer
-        
-#     except FileNotFoundError:
-#         return "Error: The index file for this workspace is missing. Please try re-uploading a document."
-#     except Exception as e:
-#         print(f"Error in get_chatbot_response: {e}")
-#         return "An internal error occurred while getting the answer."
-
 
 import os
 import json 
 import traceback
 import io
 import tempfile
+import re
+from difflib import SequenceMatcher
 from functools import lru_cache
 from django.conf import settings
-from django.db import models  # <--- THIS IS THE FIX
-
-# Import models from other apps
+from django.db import models  
 from pdfs.models import PDFFile
 from workspaces.models import Workspace
 
-# LangChain/AI Imports
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
@@ -240,7 +23,6 @@ from langchain_community.document_loaders import PDFPlumberLoader
 from langchain_cohere import CohereEmbeddings 
 
 
-# --- 1. LOAD MODELS (Unchanged) ---
 try:
     print("Loading Embedding Model (Cohere)...")
     EMBEDDINGS = CohereEmbeddings(model="embed-english-v3.0", cohere_api_key=os.getenv("COHERE_API_KEY"))
@@ -260,7 +42,7 @@ try:
             model="gemini-flash-latest", 
             google_api_key=google_api_key, 
             temperature=0.2,
-            timeout=30  # 30 second timeout for API calls
+            timeout=30 
         )
         print("[OK] Google Chat LLM Loaded.")
 except Exception as e:
@@ -271,7 +53,7 @@ except Exception as e:
 
 PARSER = StrOutputParser()
 
-# --- 2. UPDATED CLASSIFIER CHAIN (Unchanged) ---
+
 CLASSIFIER_PROMPT = ChatPromptTemplate.from_template("""
 You are a router. Analyze the user query and return a JSON object with two keys: "intent" and "doc_name".
 
@@ -309,7 +91,6 @@ JSON_PARSER = JsonOutputParser()
 CLASSIFIER_CHAIN = CLASSIFIER_PROMPT | LLM | JSON_PARSER
 
 
-# Your Q&A Chain (Unchanged)
 QA_PROMPT = ChatPromptTemplate.from_template("""
 You are a helpful research assistant. Use the provided context...
 ...
@@ -322,15 +103,135 @@ Question:
 QA_CHAIN = QA_PROMPT | LLM | PARSER
 
 
-# --- 3. PDF PROCESSING FUNCTION (Unchanged) ---
+# --- HELPERS ---
+SUMMARY_PLACEHOLDER = "Please provide the research paper text you would like me to summarize."
+
+SUMMARY_HINT_PATTERN = re.compile(
+    r"(?:summary|summaries|summarize|abstract|abstracts)\s+(?:of|for)\s+(.+?)(?:\s+(?:pdf|file|document)s?\b|$)",
+    flags=re.IGNORECASE,
+)
+
+def _normalize_text(text):
+    if not text:
+        return ''
+    lowered = text.lower()
+    cleaned = re.sub(r'[^a-z0-9]+', ' ', lowered)
+    return cleaned.strip()
+
+DOCUMENT_MATCH_RATIO_THRESHOLD = 0.65
+
+
+def _match_pdf_title(workspace, doc_name):
+    """
+    Return the best PDF and a normalized similarity ratio for the provided name.
+    """
+    normalized_target = _normalize_text(doc_name)
+    if not normalized_target:
+        return None, 0.0
+
+    best_pdf = None
+    best_ratio = 0.0
+
+    for pdf in PDFFile.objects.filter(workspace=workspace):
+        normalized_title = _normalize_text(pdf.title)
+        if not normalized_title:
+            continue
+
+        if normalized_title == normalized_target or normalized_target in normalized_title or normalized_title in normalized_target:
+            return pdf, 1.0
+
+        ratio = SequenceMatcher(None, normalized_target, normalized_title).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_pdf = pdf
+
+    return best_pdf, best_ratio
+
+
+def _best_matching_pdf(workspace, doc_name):
+    matched_pdf, _ = _match_pdf_title(workspace, doc_name)
+    return matched_pdf
+
+
+def _validate_specific_pdf_request(workspace, doc_name):
+    
+    if not doc_name or doc_name in ('all', 'none'):
+        return None
+
+    available_titles = list(workspace.pdf_files.values_list('title', flat=True))
+    matched_pdf, ratio = _match_pdf_title(workspace, doc_name)
+    print(f"[Guardrail] Requested '{doc_name}'. Available titles: {available_titles}")
+
+    if not matched_pdf:
+        print(f"[Guardrail] No matching title found for '{doc_name}'.")
+        return None
+
+    if ratio < DOCUMENT_MATCH_RATIO_THRESHOLD:
+        print(f"[Guardrail] Best match '{matched_pdf.title}' too weak ({ratio:.2f}).")
+        return None
+
+    print(f"[Guardrail] '{doc_name}' resolved to '{matched_pdf.title}' (ratio={ratio:.2f}).")
+    return matched_pdf
+
+
+def _detect_pdf_from_query(workspace, query_text):
+    normalized_query = _normalize_text(query_text)
+    if not normalized_query:
+        return None
+
+    best_ratio = 0.0
+    best_pdf = None
+
+    for pdf in PDFFile.objects.filter(workspace=workspace):
+        normalized_title = _normalize_text(pdf.title)
+        if not normalized_title:
+            continue
+
+        if normalized_title in normalized_query or normalized_query in normalized_title:
+            print(f"[FuzzyMatch] Substring match: '{pdf.title}' for query '{query_text}'")
+            return pdf
+
+        ratio = SequenceMatcher(None, normalized_query, normalized_title).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_pdf = pdf
+
+    if best_ratio >= 0.65:
+        print(f"[FuzzyMatch] SequenceMatcher match ({best_ratio:.2f}) for '{best_pdf.title}'")
+        return best_pdf
+
+    return None
+
+
+def _extract_doc_name_from_query(query_text):
+    if not query_text:
+        return None
+    match = SUMMARY_HINT_PATTERN.search(query_text)
+    if not match:
+        return None
+
+    doc_hint = match.group(1).strip()
+    doc_hint = re.sub(r"\b(?:pdf|file|document)s?\b", "", doc_hint, flags=re.IGNORECASE).strip()
+    return doc_hint or None
+
+
+def _resolve_target_pdf(workspace, doc_name_hint, user_query):
+    if doc_name_hint and doc_name_hint not in ('all', 'none'):
+        matched_pdf, ratio = _match_pdf_title(workspace, doc_name_hint)
+        if matched_pdf:
+            print(f"[Resolver] doc_name hint matched to '{matched_pdf.title}' (ratio={ratio:.2f})")
+            return matched_pdf
+
+    fuzzy_match = _detect_pdf_from_query(workspace, user_query)
+    if fuzzy_match:
+        print(f"[Resolver] Query-based match selected '{fuzzy_match.title}'")
+    return fuzzy_match
+
 
 def add_pdf_to_workspace_index(pdf_id):
-    """
-    Background task:
-    Saves summary/abstract to the *PDFFile model* itself.
-    """
+    
     try:
-        doc = PDFFile.objects.get(id=pdf_id) # 'doc' is the PDFFile object
+        doc = PDFFile.objects.get(id=pdf_id) 
         workspace = doc.workspace
     except PDFFile.DoesNotExist:
         print(f"Task failed: PDFFile with id {pdf_id} not found.")
@@ -346,14 +247,14 @@ def add_pdf_to_workspace_index(pdf_id):
     workspace.save()
 
     try:
-        # Get PDF bytes from BinaryField
+        
         pdf_bytes = doc.file
         pdf_title = doc.title
         pdf_filename = f"{doc.title}.pdf"
-        # Use the PDF's *own title* in the source info
+        
         source_info = f"Source Document: {pdf_title} (filename: {pdf_filename})\n\nContent follows:\n"
         
-        # Create a temporary file to store PDF bytes (PDFPlumberLoader needs a file path)
+        
         print(f"[Task {doc.id}] Loading text from PDF with PDFPlumber from database bytes...")
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
             temp_file.write(pdf_bytes)
@@ -363,7 +264,7 @@ def add_pdf_to_workspace_index(pdf_id):
             loader = PDFPlumberLoader(temp_file_path)
             pages = loader.load()
         finally:
-            # Clean up temporary file
+            
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
 
@@ -387,8 +288,19 @@ def add_pdf_to_workspace_index(pdf_id):
         documents_with_source = []
         for page in pages:
             cleaned_content = " ".join(page.page_content.split())
-            page.page_content = f"{source_info}{cleaned_content}"
-            documents_with_source.append(page)
+            page_metadata = dict(page.metadata or {})
+            page_metadata.update({
+                "pdf_title": pdf_title,
+                "pdf_id": doc.id,
+                "pdf_filename": pdf_filename,
+                "workspace_id": workspace.id,
+            })
+            documents_with_source.append(
+                Document(
+                    page_content=f"{source_info}{cleaned_content}",
+                    metadata=page_metadata
+                )
+            )
 
         print(f"[Task {doc.id}] Splitting text into chunks...")
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -397,7 +309,7 @@ def add_pdf_to_workspace_index(pdf_id):
         if not chunks:
             raise ValueError("Failed to create chunks from documents.")
 
-        # ... (Rest of the FAISS index creation is UNCHANGED) ...
+       
         if not workspace.index_path:
             index_name = f"workspace_index_{workspace.id}"
             index_save_path = os.path.join(settings.MEDIA_ROOT, 'vector_indexes', index_name)
@@ -417,12 +329,12 @@ def add_pdf_to_workspace_index(pdf_id):
 
         vectorstore.save_local(index_save_path)
 
-        # --- Update database models ---
-        doc.is_indexed = True
-        doc.save() # <-- This now saves the summary/abstract to the PDFFile
         
+        doc.is_indexed = True
+        doc.save() 
+
         workspace.processing_status = Workspace.ProcessingStatus.READY
-        workspace.save() # <-- This just saves the workspace status
+        workspace.save() 
         
         print(f"[Task {doc.id}] [OK] Processing complete. Workspace {workspace.id} is READY.")
 
@@ -433,7 +345,6 @@ def add_pdf_to_workspace_index(pdf_id):
         workspace.save()
 
 
-# --- 4. CHATBOT QUERY FUNCTIONS (Unchanged, but now fixed) ---
 
 @lru_cache(maxsize=10)
 def get_cached_vector_store(index_path):
@@ -463,15 +374,11 @@ def _get_query_classification(user_query):
         print(f"Error in classification: {e}. Defaulting to pdf_question.")
         import traceback
         traceback.print_exc()
-        # Fallback if the LLM doesn't return valid JSON
         return {'intent': 'pdf_question', 'doc_name': 'all'}
 
 
 def get_chatbot_response(question, workspace_id):
-    """
-    (Unchanged)
-    UPDATED: This router is now document-aware.
-    """
+    
     try:
         workspace = Workspace.objects.get(id=workspace_id)
     except Workspace.DoesNotExist:
@@ -494,6 +401,12 @@ def get_chatbot_response(question, workspace_id):
         doc_name = classification.get('doc_name')
         
         print(f"Router: Intent='{intent}', DocName='{doc_name}'")
+        doc_hint = _extract_doc_name_from_query(question)
+        specific_doc_name = None
+        if doc_hint:
+            specific_doc_name = doc_hint
+        elif doc_name and doc_name not in ('all', 'none'):
+            specific_doc_name = doc_name
 
         # --- Route 1: Off-Topic ---
         if intent == 'off_topic':
@@ -501,14 +414,29 @@ def get_chatbot_response(question, workspace_id):
 
         # --- Route 2: Summary or Abstract ---
         if intent == 'summary' or intent == 'abstract':
-            
-            # --- Sub-Route A: Summary/Abstract of ALL docs (Unchanged) ---
+            if specific_doc_name:
+                try:
+                    requested_pdf = _validate_specific_pdf_request(workspace, specific_doc_name)
+                    if not requested_pdf:
+                        return "PDF not available"
+
+                    print(f"Best match for '{specific_doc_name}' is PDF: {requested_pdf.title}")
+
+                    content = requested_pdf.summary if intent == 'summary' else requested_pdf.abstract
+                    if not content or content == 'N/A' or content == SUMMARY_PLACEHOLDER:
+                        return f"A {intent} is not yet available for '{requested_pdf.title}'. Please try again shortly."
+
+                    return content
+
+                except Exception as e:
+                    print(f"Error finding specific doc: {e}")
+                    return "I had trouble finding that specific document."
+
             if doc_name == 'all':
                 all_pdfs = PDFFile.objects.filter(workspace=workspace)
                 if not all_pdfs.exists():
                     return "There are no documents in this workspace."
                 
-                # Gather all summaries or abstracts
                 all_content = []
                 for pdf in all_pdfs:
                     content = pdf.summary if intent == 'summary' else pdf.abstract
@@ -526,79 +454,42 @@ def get_chatbot_response(question, workspace_id):
                 combine_chain = combine_prompt | LLM | PARSER
                 return combine_chain.invoke({"text": combined_text})
 
-            # ---
-            # --- Sub-Route B: Summary/Abstract of a SPECIFIC doc (THIS IS THE FIX) ---
-            # ---
-            else:
-                try:
-                    # --- NEW "BEST MATCH" KEYWORD SEARCH ---
-                    
-                    # Get all PDFs in the workspace first
-                    all_pdfs = PDFFile.objects.filter(workspace=workspace)
-                    if not all_pdfs.exists():
-                        return "There are no documents in this workspace."
-
-                    # Clean the doc_name into search terms
-                    keywords = doc_name.lower().split()
-                    stop_words = {'pdf', 'paper', 'document', 'summary', 'abstract', 'of', 'in', 'short'}
-                    search_terms = [k for k in keywords if k not in stop_words]
-
-                    if not search_terms: # User just said "pdf" or "summary"
-                         return "Please be more specific about which document you mean."
-
-                    best_match = None
-                    best_score = 0
-
-                    # Loop through each PDF and "score" it against the search terms
-                    for pdf in all_pdfs:
-                        # Create a single string of all searchable text for this PDF
-                        search_corpus = " ".join(filter(None, [
-                            pdf.title,
-                            f"{pdf.title}.pdf",  # Use title as filename since file is BinaryField
-                            pdf.summary,
-                            pdf.abstract
-                        ])).lower()
-                        
-                        current_score = 0
-                        for term in search_terms:
-                            if term in search_corpus:
-                                current_score += 1 # Add 1 point for each matching keyword
-                        
-                        if current_score > best_score:
-                            best_score = current_score
-                            best_match = pdf
-
-                    # We require at least one keyword to match
-                    if not best_match:
-                        return f"I could not find a document closely matching '{doc_name}'."
-                    
-                    # We found the best matching PDF. Now get its content.
-                    print(f"Keyword search for '{doc_name}' matched PDF: {best_match.title}")
-                    
-                    content = best_match.summary if intent == 'summary' else best_match.abstract
-                    if not content or content == 'N/A':
-                        return f"A {intent} has not been generated (or was not found) for {best_match.title}."
-                    
-                    return content
-                    
-                except Exception as e:
-                    print(f"Error finding specific doc: {e}")
-                    return "I had trouble finding that specific document."
+            return "Please clarify which document you want summarized."
+                
                 
         # --- Route 3: PDF Question (RAG) ---
+        doc_requested = bool(specific_doc_name)
+        requested_pdf = _validate_specific_pdf_request(workspace, specific_doc_name) if doc_requested else None
+
+        if doc_requested and not requested_pdf:
+            return "PDF not available"
+
         if intent == 'pdf_question':
-            # (This is the original RAG logic, unchanged)
+            
             if not workspace.index_path:
                 return "Error: This workspace is ready but its index path is missing."
             try:
                 vectorstore = get_cached_vector_store(workspace.index_path)
-                relevant_docs = vectorstore.similarity_search(question, k=5)
+                target_pdf = requested_pdf or _resolve_target_pdf(workspace, specific_doc_name, question)
+                filter_kwargs = {"pdf_id": target_pdf.id} if target_pdf else None
+
+                if target_pdf:
+                    print(f"[RAG] Filtering context for PDF '{target_pdf.title}' (ID {target_pdf.id}).")
+
+                relevant_docs = vectorstore.similarity_search(question, k=5, filter=filter_kwargs)
                 
                 if not relevant_docs:
+                    if target_pdf:
+                        return f"I could not find relevant information within '{target_pdf.title}'. Please try another question."
                     return "I could not find any relevant information about that in the workspace documents."
 
-                context = "\n\n".join([doc.page_content for doc in relevant_docs])
-                print(f"[RAG] Found {len(relevant_docs)} relevant documents, context length: {len(context)} chars")
+                context_chunks = []
+                for chunk in relevant_docs:
+                    metadata = getattr(chunk, "metadata", {}) or {}
+                    source_label = metadata.get("pdf_title") or metadata.get("pdf_filename") or metadata.get("source") or "Unknown Document"
+                    context_chunks.append(f"[{source_label}] {chunk.page_content}")
+                context = "\n\n".join(context_chunks)
+                print(f"[RAG] Found {len(relevant_docs)} relevant chunks, context length: {len(context)} chars")
 
                 if not QA_CHAIN or LLM is None:
                     return "Error: The chatbot LLM is not initialized."
