@@ -7,8 +7,7 @@ from .models import AIChatMessage
 from workspaces.models import Workspace
 from workspaces.models import WorkspaceMember
 
-# --- THIS IS THE ONLY IMPORT YOU NEED ---
-# Your new engine.py handles ALL the logic (routing, Q&A, etc.)
+
 from .engine import get_chatbot_response
 
 
@@ -53,12 +52,10 @@ def ask_question(request):
             is_from_bot=False
         )
         
-        # --- 2. Get AI's Answer ---
-        # The engine.py now handles ALL logic (routing, summary, abstract, Q&A)
-        # Run LLM calls in a thread pool to prevent blocking
+        
         ai_prompt = question_text.lstrip('/ai').strip()
         
-        # Use thread pool executor to run blocking LLM calls
+        
         print(f"[ask_question] Starting chatbot response for question: {ai_prompt[:100]}...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(get_chatbot_response, ai_prompt, workspace_id)
