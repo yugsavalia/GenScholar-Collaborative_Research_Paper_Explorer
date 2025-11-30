@@ -172,27 +172,52 @@ GenScholar Team"""
             if not settings.EMAIL_HOST_PASSWORD:
                 raise ValueError("EMAIL_HOST_PASSWORD is not configured in settings")
             
-            # Use Django's email backend directly with explicit connection
+            # Use Django's email backend directly with explicit connection and timeout
+            # CRITICAL: Add timeout to prevent Gunicorn worker timeout (30s default)
             from django.core.mail import get_connection
-            connection = get_connection(
-                backend=settings.EMAIL_BACKEND,
-                host=settings.EMAIL_HOST,
-                port=settings.EMAIL_PORT,
-                username=settings.EMAIL_HOST_USER,
-                password=settings.EMAIL_HOST_PASSWORD,
-                use_tls=settings.EMAIL_USE_TLS,
-            )
+            import socket
             
-            result = send_mail(
-                subject,
-                message,
-                from_email,
-                [email],
-                fail_silently=False,
-                connection=connection,
-            )
-            print(f"✓ Email sent successfully to {email} (result: {result})")
-            messages.success(request, f'Verification link sent to {email}. Please check your email.')
+            # Set socket default timeout to prevent indefinite blocking
+            original_timeout = socket.getdefaulttimeout()
+            email_timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
+            socket.setdefaulttimeout(email_timeout)
+            
+            try:
+                connection = get_connection(
+                    backend=settings.EMAIL_BACKEND,
+                    host=settings.EMAIL_HOST,
+                    port=settings.EMAIL_PORT,
+                    username=settings.EMAIL_HOST_USER,
+                    password=settings.EMAIL_HOST_PASSWORD,
+                    use_tls=settings.EMAIL_USE_TLS,
+                    timeout=email_timeout,  # Explicit timeout parameter
+                )
+                
+                try:
+                    result = send_mail(
+                        subject,
+                        message,
+                        from_email,
+                        [email],
+                        fail_silently=False,
+                        connection=connection,
+                    )
+                    print(f"✓ Email sent successfully to {email} (result: {result})")
+                    messages.success(request, f'Verification link sent to {email}. Please check your email.')
+                finally:
+                    # Always close connection to free resources
+                    try:
+                        connection.close()
+                    except:
+                        pass
+            except socket.timeout:
+                error_msg = f"Email server connection timed out after {email_timeout} seconds"
+                print(f"✗ ERROR: {error_msg}")
+                messages.error(request, f'Email server connection timed out. Please check your SMTP settings and network connectivity.')
+                return render(request, 'accounts/request_email_verification.html')
+            finally:
+                # Restore original socket timeout
+                socket.setdefaulttimeout(original_timeout)
         except Exception as e:
             error_msg = str(e)
             print(f"✗ ERROR sending verification email: {error_msg}")
@@ -632,31 +657,54 @@ def api_request_email_verification_view(request):
         message = f"""Your 6-digit verification code is: {otp}
 This code expires in 10 minutes."""
         
-        # Use Django's email backend directly with explicit connection
+        # Use Django's email backend directly with explicit connection and timeout
+        # CRITICAL: Add timeout to prevent Gunicorn worker timeout (30s default)
         from django.core.mail import get_connection
-        connection = get_connection(
-            backend=settings.EMAIL_BACKEND,
-            host=settings.EMAIL_HOST,
-            port=settings.EMAIL_PORT,
-            username=settings.EMAIL_HOST_USER,
-            password=settings.EMAIL_HOST_PASSWORD,
-            use_tls=settings.EMAIL_USE_TLS,
-        )
+        import socket
+        
+        # Set socket default timeout to prevent indefinite blocking
+        original_timeout = socket.getdefaulttimeout()
+        email_timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
+        socket.setdefaulttimeout(email_timeout)
         
         try:
-            result = send_mail(
-                subject,
-                message,
-                from_email,
-                [email],
-                fail_silently=False,
-                connection=connection,
+            connection = get_connection(
+                backend=settings.EMAIL_BACKEND,
+                host=settings.EMAIL_HOST,
+                port=settings.EMAIL_PORT,
+                username=settings.EMAIL_HOST_USER,
+                password=settings.EMAIL_HOST_PASSWORD,
+                use_tls=settings.EMAIL_USE_TLS,
+                timeout=email_timeout,  # Explicit timeout parameter
             )
-            print(f"✓ OTP email sent successfully to {email} (result: {result})")
+            
+            try:
+                result = send_mail(
+                    subject,
+                    message,
+                    from_email,
+                    [email],
+                    fail_silently=False,
+                    connection=connection,
+                )
+                print(f"✓ OTP email sent successfully to {email} (result: {result})")
+                return JsonResponse({
+                    "success": True,
+                    "data": {"message": f"OTP sent to {email}"}
+                })
+            finally:
+                # Always close connection to free resources
+                try:
+                    connection.close()
+                except:
+                    pass
+        except socket.timeout:
+            error_msg = "Email server connection timed out"
+            print(f"✗ ERROR: {error_msg} (timeout: {email_timeout}s)")
             return JsonResponse({
-                "success": True,
-                "data": {"message": f"OTP sent to {email}"}
-            })
+                "success": False,
+                "message": f"Email server connection timed out after {email_timeout} seconds. Please check your SMTP settings and network connectivity."
+            }, status=500)
         except Exception as e:
             error_msg = str(e)
             print(f"✗ ERROR sending OTP email: {error_msg}")
@@ -666,18 +714,26 @@ This code expires in 10 minutes."""
             if "authentication" in error_msg.lower() or "535" in error_msg or "534" in error_msg or "535-5.7.8" in error_msg:
                 return JsonResponse({
                     "success": False,
-                    "message": "Email authentication failed. Please verify your SMTP credentials are correct."
+                    "message": "Email authentication failed. For Brevo, make sure you're using the SMTP password (not API key). Check your Brevo dashboard → SMTP & API → SMTP section."
                 }, status=500)
             elif "connection" in error_msg.lower() or "timeout" in error_msg.lower() or "refused" in error_msg.lower():
                 return JsonResponse({
                     "success": False,
                     "message": "Could not connect to email server. Please check your internet connection and that SMTP is accessible."
                 }, status=500)
+            elif "ssl" in error_msg.lower() or "tls" in error_msg.lower():
+                return JsonResponse({
+                    "success": False,
+                    "message": "SSL/TLS connection error. Please verify EMAIL_USE_TLS is set to True and EMAIL_USE_SSL is False for Brevo."
+                }, status=500)
             else:
                 return JsonResponse({
                     "success": False,
                     "message": f"Failed to send OTP email: {error_msg[:150]}"
                 }, status=500)
+        finally:
+            # Restore original socket timeout
+            socket.setdefaulttimeout(original_timeout)
         
     except json.JSONDecodeError:
         return JsonResponse({"success": False, "message": "Invalid JSON"}, status=400)

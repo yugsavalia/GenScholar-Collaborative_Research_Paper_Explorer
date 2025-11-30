@@ -352,6 +352,8 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 # Email configuration (read from environment variables)
+# NOTE: For Brevo, use SMTP password (NOT API key) for EMAIL_HOST_PASSWORD
+# Get SMTP credentials from: Brevo Dashboard → Settings → SMTP & API → SMTP section
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp-relay.brevo.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
@@ -359,6 +361,7 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))  # 10 second timeout to prevent worker hangs
 
 # Set DEFAULT_FROM_EMAIL - use env or fallback
 default_from_env = os.getenv('DEFAULT_FROM_EMAIL', '')

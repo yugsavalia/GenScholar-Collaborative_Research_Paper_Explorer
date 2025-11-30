@@ -73,21 +73,52 @@ If you did not request this, you can safely ignore this email.
 Thanks,
 GenScholar Support Team"""
     
-    # Send email
+    # Send email with timeout protection
     # Determine valid from_email address
     from_email = settings.DEFAULT_FROM_EMAIL
     if not from_email or '@localhost' in from_email or from_email == 'no-reply@localhost':
         from_email = settings.DEFAULT_FROM_EMAIL
     
+    # Use Django's email backend with explicit connection and timeout
+    # CRITICAL: Add timeout to prevent Gunicorn worker timeout (30s default)
+    from django.core.mail import get_connection
+    import socket
+    
+    # Set socket default timeout to prevent indefinite blocking
+    original_timeout = socket.getdefaulttimeout()
+    email_timeout = getattr(settings, 'EMAIL_TIMEOUT', 10)
+    socket.setdefaulttimeout(email_timeout)
+    
     try:
-        send_mail(
-            subject,
-            message,
-            from_email,
-            [user.email],
-            fail_silently=False,
+        connection = get_connection(
+            backend=settings.EMAIL_BACKEND,
+            host=settings.EMAIL_HOST,
+            port=settings.EMAIL_PORT,
+            username=settings.EMAIL_HOST_USER,
+            password=settings.EMAIL_HOST_PASSWORD,
+            use_tls=settings.EMAIL_USE_TLS,
+            timeout=email_timeout,  # Explicit timeout parameter
         )
-        print(f"✓ Password reset email sent to {user.email} from {from_email}")
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                from_email,
+                [user.email],
+                fail_silently=False,
+                connection=connection,
+            )
+            print(f"✓ Password reset email sent to {user.email} from {from_email}")
+        finally:
+            # Always close connection to free resources
+            try:
+                connection.close()
+            except:
+                pass
+    except socket.timeout:
+        # Log error but still return generic success for security
+        print(f"✗ ERROR: Password reset email connection timed out after {email_timeout}s")
     except Exception as e:
         # Log error but still return generic success for security
         print(f"✗ ERROR sending password reset email: {e}")
@@ -98,6 +129,9 @@ GenScholar Support Team"""
         import traceback
         traceback.print_exc()
         # In production, you might want to log this to a proper logging system
+    finally:
+        # Restore original socket timeout
+        socket.setdefaulttimeout(original_timeout)
     
     # Always return generic success message
         # Return success message after sending reset email
