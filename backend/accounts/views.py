@@ -684,7 +684,9 @@ This code expires in 10 minutes."""
             original_timeout = socket.getdefaulttimeout()
             socket.setdefaulttimeout(email_timeout)
             
+            connection = None
             try:
+                # Create connection with timeout
                 connection = get_connection(
                     backend=settings.EMAIL_BACKEND,
                     host=settings.EMAIL_HOST,
@@ -695,31 +697,42 @@ This code expires in 10 minutes."""
                     timeout=email_timeout,
                 )
                 
-                print(f"[EMAIL DEBUG] Connection object created, attempting to send...")
+                print(f"[EMAIL DEBUG] Connection object created, opening connection...")
                 
-                try:
-                    result = send_mail(
-                        subject,
-                        message,
-                        from_email,
-                        [email],
-                        fail_silently=False,
-                        connection=connection,
-                    )
-                    print(f"✓ OTP email sent successfully to {email} (result: {result})")
-                    return {"success": True, "result": result}
-                finally:
-                    # Always close connection to free resources
-                    try:
-                        connection.close()
-                        print(f"[EMAIL DEBUG] Connection closed")
-                    except Exception as close_err:
-                        print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
-            except socket.timeout:
+                # Open connection explicitly to test connectivity before sending
+                # This will fail fast if SMTP is unreachable
+                connection.open()
+                print(f"[EMAIL DEBUG] Connection opened successfully, sending email...")
+                
+                # Send email using the already-open connection
+                result = send_mail(
+                    subject,
+                    message,
+                    from_email,
+                    [email],
+                    fail_silently=False,
+                    connection=connection,
+                )
+                print(f"✓ OTP email sent successfully to {email} (result: {result})")
+                return {"success": True, "result": result}
+                
+            except socket.timeout as e:
+                print(f"[EMAIL DEBUG] Socket timeout: {e}")
                 raise TimeoutError(f"SMTP connection timed out after {email_timeout} seconds")
             except Exception as e:
+                error_msg = str(e)
+                print(f"[EMAIL DEBUG] Error during email send: {error_msg}")
+                # Re-raise to be caught by outer handler
                 raise e
             finally:
+                # Always close connection to free resources
+                if connection:
+                    try:
+                        if connection.connection:  # Check if connection is open
+                            connection.close()
+                            print(f"[EMAIL DEBUG] Connection closed")
+                    except Exception as close_err:
+                        print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
                 socket.setdefaulttimeout(original_timeout)
         
         # Execute email sending in thread pool with timeout
@@ -739,9 +752,14 @@ This code expires in 10 minutes."""
                     error_msg = f"Email operation timed out after {email_timeout + 2} seconds"
                     print(f"✗ ERROR: {error_msg}")
                     print(f"✗ ERROR: Could not complete SMTP operation to {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                    print(f"✗ ERROR: This could indicate:")
+                    print(f"  - Brevo SMTP server is blocking Railway IP addresses")
+                    print(f"  - Brevo requires IP whitelisting (check Brevo dashboard)")
+                    print(f"  - Railway network policy blocking outbound SMTP")
+                    print(f"  - DNS resolution issues for {settings.EMAIL_HOST}")
                     return JsonResponse({
                         "success": False,
-                        "message": f"Email operation timed out. The SMTP server may be slow or unreachable. Please try again or contact support."
+                        "message": f"Email operation timed out after {email_timeout + 2} seconds. Possible causes: Brevo IP whitelisting required, Railway network restrictions, or DNS issues. Check Railway logs for detailed error messages."
                     }, status=500)
         except TimeoutError as e:
             error_msg = str(e)
