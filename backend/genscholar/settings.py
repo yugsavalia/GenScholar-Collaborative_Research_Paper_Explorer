@@ -29,7 +29,13 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-f0-e%8**&h%51ef5k+!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0,testserver').split(',')
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '').strip()
+default_hosts = 'localhost,127.0.0.1,0.0.0.0,testserver'
+if os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_GIT_COMMIT_SHA'):
+    railway_public_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
+    if railway_public_domain:
+        default_hosts = f'{default_hosts},{railway_public_domain}'
+ALLOWED_HOSTS = [host.strip() for host in (allowed_hosts_env if allowed_hosts_env else default_hosts).split(',') if host.strip()]
 
 
 # Application definition
