@@ -686,6 +686,16 @@ This code expires in 10 minutes."""
             
             connection = None
             try:
+                # First, test if we can resolve the hostname (quick DNS check)
+                try:
+                    import socket as socket_module
+                    print(f"[EMAIL DEBUG] Testing DNS resolution for {settings.EMAIL_HOST}...")
+                    socket_module.getaddrinfo(settings.EMAIL_HOST, settings.EMAIL_PORT, socket_module.AF_INET)
+                    print(f"[EMAIL DEBUG] DNS resolution successful")
+                except Exception as dns_err:
+                    print(f"[EMAIL DEBUG] DNS resolution failed: {dns_err}")
+                    raise Exception(f"Could not resolve SMTP hostname {settings.EMAIL_HOST}: {dns_err}")
+                
                 # Create connection with timeout
                 connection = get_connection(
                     backend=settings.EMAIL_BACKEND,
@@ -697,14 +707,11 @@ This code expires in 10 minutes."""
                     timeout=email_timeout,
                 )
                 
-                print(f"[EMAIL DEBUG] Connection object created, opening connection...")
+                print(f"[EMAIL DEBUG] Connection object created, attempting to send email...")
+                print(f"[EMAIL DEBUG] Note: send_mail() will open connection automatically")
                 
-                # Open connection explicitly to test connectivity before sending
-                # This will fail fast if SMTP is unreachable
-                connection.open()
-                print(f"[EMAIL DEBUG] Connection opened successfully, sending email...")
-                
-                # Send email using the already-open connection
+                # Let send_mail() handle connection opening - it's more reliable
+                # The timeout is set on the connection object and socket level
                 result = send_mail(
                     subject,
                     message,
@@ -722,15 +729,20 @@ This code expires in 10 minutes."""
             except Exception as e:
                 error_msg = str(e)
                 print(f"[EMAIL DEBUG] Error during email send: {error_msg}")
+                print(f"[EMAIL DEBUG] Error type: {type(e).__name__}")
                 # Re-raise to be caught by outer handler
                 raise e
             finally:
                 # Always close connection to free resources
                 if connection:
                     try:
-                        if connection.connection:  # Check if connection is open
+                        # Check if connection has a connection attribute and it's open
+                        if hasattr(connection, 'connection') and connection.connection:
                             connection.close()
                             print(f"[EMAIL DEBUG] Connection closed")
+                        elif hasattr(connection, 'close'):
+                            connection.close()
+                            print(f"[EMAIL DEBUG] Connection closed (no active connection)")
                     except Exception as close_err:
                         print(f"[EMAIL DEBUG] Error closing connection: {close_err}")
                 socket.setdefaulttimeout(original_timeout)
