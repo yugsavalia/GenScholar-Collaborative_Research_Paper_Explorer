@@ -112,22 +112,105 @@ ASGI_APPLICATION = 'genscholar.asgi.application'
 # --- Channel Layer Configuration ---
 # This allows your HTTP views to talk to your WebSocket consumers
 # Try Redis first, fallback to in-memory for development
-import os
 REDIS_AVAILABLE = os.getenv('REDIS_AVAILABLE', 'true').lower() == 'true'
 
 if REDIS_AVAILABLE:
     try:
         import redis
-        r = redis.Redis(host='127.0.0.1', port=6379, db=0)
-        r.ping()  # Test connection
-        CHANNEL_LAYERS = {
-            "default": {
-                "BACKEND": "channels_redis.core.RedisChannelLayer",
-                "CONFIG": {
-                    "hosts": [("127.0.0.1", 6379)],
-                },
-            },
-        }
+        from urllib.parse import urlparse
+        
+        # Try to get Redis URL from environment (Railway provides REDIS_URL or REDIS_PUBLIC_URL)
+        redis_url = os.getenv('REDIS_URL') or os.getenv('REDIS_PUBLIC_URL')
+        
+        if redis_url:
+            # Parse Redis URL: redis://username:password@host:port
+            parsed = urlparse(redis_url)
+            redis_host = parsed.hostname
+            redis_port = parsed.port or 6379
+            redis_password = parsed.password
+            redis_username = parsed.username or 'default'
+            
+            # Test connection with parsed credentials
+            if redis_password:
+                r = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    password=redis_password,
+                    username=redis_username,
+                    decode_responses=False
+                )
+            else:
+                r = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    decode_responses=False
+                )
+            r.ping()  # Test connection
+            
+            # Configure channels_redis with the parsed URL
+            if redis_password:
+                # Use URL format for channels_redis
+                CHANNEL_LAYERS = {
+                    "default": {
+                        "BACKEND": "channels_redis.core.RedisChannelLayer",
+                        "CONFIG": {
+                            "hosts": [redis_url],
+                        },
+                    },
+                }
+            else:
+                CHANNEL_LAYERS = {
+                    "default": {
+                        "BACKEND": "channels_redis.core.RedisChannelLayer",
+                        "CONFIG": {
+                            "hosts": [(redis_host, redis_port)],
+                        },
+                    },
+                }
+        else:
+            # Fallback to individual environment variables
+            redis_host = os.getenv('REDISHOST', '127.0.0.1')
+            redis_port = int(os.getenv('REDISPORT', '6379'))
+            redis_password = os.getenv('REDISPASSWORD')
+            redis_username = os.getenv('REDISUSER')
+            
+            # Test connection
+            if redis_password:
+                r = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    password=redis_password,
+                    username=redis_username,
+                    decode_responses=False
+                )
+            else:
+                r = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    decode_responses=False
+                )
+            r.ping()  # Test connection
+            
+            # Configure channels_redis
+            if redis_password and redis_username:
+                redis_url_fallback = f"redis://{redis_username}:{redis_password}@{redis_host}:{redis_port}"
+                CHANNEL_LAYERS = {
+                    "default": {
+                        "BACKEND": "channels_redis.core.RedisChannelLayer",
+                        "CONFIG": {
+                            "hosts": [redis_url_fallback],
+                        },
+                    },
+                }
+            else:
+                CHANNEL_LAYERS = {
+                    "default": {
+                        "BACKEND": "channels_redis.core.RedisChannelLayer",
+                        "CONFIG": {
+                            "hosts": [(redis_host, redis_port)],
+                        },
+                    },
+                }
     except ImportError:
         # Redis module not installed - use in-memory fallback
         print("WARNING: Redis module not installed. Using in-memory channel layer (not suitable for production).")
@@ -136,9 +219,9 @@ if REDIS_AVAILABLE:
                 "BACKEND": "channels.layers.InMemoryChannelLayer"
             }
         }
-    except Exception:
+    except Exception as e:
         # Redis connection failed - use in-memory fallback
-        print("WARNING: Redis not available. Using in-memory channel layer (not suitable for production).")
+        print(f"WARNING: Redis not available. Using in-memory channel layer (not suitable for production). Error: {e}")
         CHANNEL_LAYERS = {
             "default": {
                 "BACKEND": "channels.layers.InMemoryChannelLayer"
