@@ -6,7 +6,6 @@ import io
 import tempfile
 import re
 from difflib import SequenceMatcher
-from functools import lru_cache
 from django.conf import settings
 from django.db import models  
 from pdfs.models import PDFFile
@@ -346,7 +345,6 @@ def add_pdf_to_workspace_index(pdf_id):
 
 
 
-@lru_cache(maxsize=10)
 def get_cached_vector_store(index_path):
     """ (Unchanged) """
     if not os.path.exists(index_path):
