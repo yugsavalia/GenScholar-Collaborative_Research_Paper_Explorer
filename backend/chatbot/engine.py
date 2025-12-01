@@ -446,9 +446,6 @@ def get_chatbot_response(question, workspace_id):
                 if not all_content:
                     return f"No {intent}s have been generated for the documents in this workspace."
                 
-                if len(all_content) == 1:
-                    return all_content[0]
-                
                 combined_text = "\n\n---\n\n".join(all_content)
                 combine_prompt = ChatPromptTemplate.from_template(f"Please create a single, cohesive {intent} based on the following individual document sections:\n\n{{text}}")
                 combine_chain = combine_prompt | LLM | PARSER
