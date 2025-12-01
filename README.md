@@ -50,7 +50,7 @@ python manage.py runserver
 ### Frontend Setup
 
 ```bash
-cd client
+cd frontend
 npm install
 npm run dev
 ```
