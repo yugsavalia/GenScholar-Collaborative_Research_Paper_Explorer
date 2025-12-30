@@ -29,41 +29,9 @@ A collaborative research paper exploration platform that transforms PDF document
 - React Query
 - React PDF
 
-## Prerequisites
+## Website Demo Video
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL
-- Redis
-
-## Setup
-
-### Backend Setup
-
-```bash
-cd backend
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-```
-
-### Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## Test Users
-
-**Note:** The create account feature is currently not working. Please use the following test accounts to access the platform:
-
-| Username | Password | 
-|----------|----------|
-| `test1` | `Test@123` | 
-| `test2` | `Test@123` | 
-| `test3` | `Test@123` | 
+**Youtube Video Link** https://youtu.be/t-ml53cb_Hk
 
 ## Design
 
